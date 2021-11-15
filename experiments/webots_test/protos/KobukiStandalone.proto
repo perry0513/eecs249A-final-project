@@ -1,0 +1,325 @@
+#VRML_SIM R2021b utf8
+# license: Apache License 2.0
+# license url: http://www.apache.org/licenses/LICENSE-2.0
+# This is a proto file for Webots for the KobukiStandalone
+# Extracted from: kobuki.urdf
+
+PROTO KobukiStandalone [
+  field  SFVec3f     translation     0 0 0
+  field  SFRotation  rotation        1 0 0 -1.5708
+  field  SFString    name            "KobukiStandalone"  # Is `Robot.name`.
+  field  SFString    controller      "kobuki"              # Is `Robot.controller`.
+  field  MFString    controllerArgs  []                  # Is `Robot.controllerArgs`.
+  field  SFString    customData      ""                  # Is `Robot.customData`.
+  field  SFBool      supervisor      FALSE               # Is `Robot.supervisor`.
+  field  SFBool      synchronization TRUE                # Is `Robot.synchronization`.
+  field  SFBool      selfCollision   FALSE               # Is `Robot.selfCollision`.
+]
+{
+  Robot {
+    translation IS translation
+    rotation IS rotation
+    controller IS controller
+    controllerArgs IS controllerArgs
+    customData IS customData
+    supervisor IS supervisor
+    synchronization IS synchronization
+    selfCollision IS selfCollision
+    physics DEF MYBOT_PHYSICS Physics {
+      density -1
+      mass 0.5
+    }
+    children [
+      Solid {
+        translation 0.000000 0.000000 0.010200
+        rotation 0.000000 1.000000 0.000000 0.000000
+        children [
+          Transform {
+            translation 0.001000 0.000000 0.051990
+            rotation 0.000000 1.000000 0.000000 0.000000
+            children [
+              Shape {
+                appearance PBRAppearance {
+                  baseColor 0.500000 0.500000 0.500000
+                  transparency 0.000000
+                  roughness 1.000000
+                  metalness 0
+                  emissiveColor 0.000000 0.000000 0.000000
+                }
+                geometry DEF main_body Mesh {
+                  url "kobuki_description/meshes/main_body.dae"
+                }
+              }
+            ]
+          }
+          HingeJoint {
+            jointParameters HingeJointParameters {
+              axis 0.000000 1.000000 0.000000
+              anchor 0.000000 0.115000 0.025000
+              dampingConstant 0.0
+              staticFriction 0.0
+            }
+            device [
+              RotationalMotor {
+                name "wheel_left_joint"
+                maxTorque 10000
+              }
+              PositionSensor {
+                name "wheel_left_joint_sensor"
+              }
+            ]
+            endPoint Solid {
+              translation 0.000000 0.115000 0.025000
+              rotation -1.000000 0.000000 0.000000 1.570796
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                    baseColor 0.500000 0.500000 0.500000
+                    transparency 0.000000
+                    roughness 1.000000
+                    metalness 0
+                    emissiveColor 0.000000 0.000000 0.000000
+                  }
+                  geometry DEF wheel Mesh {
+                    url "kobuki_description/meshes/wheel.dae"
+                  }
+                }
+              ]
+              name "wheel_left_link"
+              boundingObject Transform {
+                translation 0.000000 0.000000 0.000000
+                rotation 1.000000 0.000000 0.000000 1.570796
+                children [
+                  Cylinder {
+                    radius 0.035
+                    height 0.0206
+                  }
+                ]
+              }
+              physics Physics {
+                density -1
+                mass 0.010000
+                centerOfMass [ 0.000000 0.000000 0.000000 ]
+                inertiaMatrix [
+                  1.000000e-03 1.000000e-03 1.000000e-03
+                  0.000000e+00 0.000000e+00 0.000000e+00
+                ]
+              }
+            }
+          }
+          HingeJoint {
+            jointParameters HingeJointParameters {
+              axis 0.000000 1.000000 0.000000
+              anchor 0.000000 -0.115000 0.025000
+              dampingConstant 0.0
+              staticFriction 0.0
+            }
+            device [
+              RotationalMotor {
+                name "wheel_right_joint"
+                maxTorque 10000
+              }
+              PositionSensor {
+                name "wheel_right_joint_sensor"
+              }
+            ]
+            endPoint Solid {
+              translation 0.000000 -0.115000 0.025000
+              rotation -1.000000 0.000000 0.000000 1.570796
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                    baseColor 0.500000 0.500000 0.500000
+                    transparency 0.000000
+                    roughness 1.000000
+                    metalness 0
+                    emissiveColor 0.000000 0.000000 0.000000
+                  }
+                  geometry USE wheel
+                }
+              ]
+              name "wheel_right_link"
+              boundingObject Transform {
+                translation 0.000000 0.000000 0.000000
+                rotation 1.000000 0.000000 0.000000 1.570796
+                children [
+                  Cylinder {
+                    radius 0.035
+                    height 0.0206
+                  }
+                ]
+              }
+              physics Physics {
+                density -1
+                mass 0.010000
+                centerOfMass [ 0.000000 0.000000 0.000000 ]
+                inertiaMatrix [
+                  1.000000e-03 1.000000e-03 1.000000e-03
+                  0.000000e+00 0.000000e+00 0.000000e+00
+                ]
+              }
+            }
+          }
+          Solid {
+            translation 0.115000 0.000000 0.007000
+            rotation -1.000000 0.000000 0.000000 1.570796
+            name "caster_front_link"
+            boundingObject Transform {
+              translation 0.000000 0.000000 0.000000
+              rotation 1.000000 0.000000 0.000000 1.570796
+              children [
+                Cylinder {
+                  radius 0.017
+                  height 0.0176
+                }
+              ]
+            }
+            physics Physics {
+              density -1
+              mass 0.010000
+              centerOfMass [ 0.000000 0.000000 0.000000 ]
+              inertiaMatrix [
+                1.000000e-03 1.000000e-03 1.000000e-03
+                0.000000e+00 0.000000e+00 0.000000e+00
+              ]
+            }
+          }
+          Solid {
+            translation -0.135000 0.000000 0.009000
+            rotation -1.000000 0.000000 0.000000 1.570796
+            name "caster_back_link"
+            boundingObject Transform {
+              translation 0.000000 0.000000 0.000000
+              rotation 1.000000 0.000000 0.000000 1.570796
+              children [
+                Cylinder {
+                  radius 0.017
+                  height 0.0176
+                }
+              ]
+            }
+            physics Physics {
+              density -1
+              mass 0.010000
+              centerOfMass [ 0.000000 0.000000 0.000000 ]
+              inertiaMatrix [
+                1.000000e-03 1.000000e-03 1.000000e-03
+                0.000000e+00 0.000000e+00 0.000000e+00
+              ]
+            }
+          }
+          Solid {
+            translation 0.056000 0.062000 0.020200
+            rotation 0.000000 1.000000 0.000000 0.000000
+            name "gyro_link"
+            physics Physics {
+              density -1
+              mass 0.001000
+              centerOfMass [ 0.000000 0.000000 0.000000 ]
+              inertiaMatrix [
+                1.000000e-04 1.000000e-06 1.000000e-04
+                0.000000e+00 0.000000e+00 0.000000e+00
+              ]
+            }
+          }
+          Solid {
+            translation 0.087340 0.136010 0.021400
+            rotation 0.000000 1.000000 0.000000 1.570796
+            children [
+              Lidar {
+                name "cliff_sensor_left"
+                fieldOfView 0.087200
+                horizontalResolution 50
+                numberOfLayers 1
+                minRange 0.010000
+                maxRange 0.150000
+                resolution 1.000000
+              }
+            ]
+            name "cliff_sensor_left_link"
+            physics Physics {
+              density -1
+              mass 0.000100
+              centerOfMass [ 0.000000 0.000000 0.000000 ]
+              inertiaMatrix [
+                1.000000e-04 1.000000e-04 1.000000e-04
+                0.000000e+00 0.000000e+00 0.000000e+00
+              ]
+            }
+          }
+          Solid {
+            translation 0.085000 -0.136010 0.021400
+            rotation 0.000000 1.000000 0.000000 1.570796
+            children [
+              Lidar {
+                name "cliff_sensor_right"
+                fieldOfView 0.087200
+                horizontalResolution 50
+                numberOfLayers 1
+                minRange 0.010000
+                maxRange 0.150000
+                resolution 1.000000
+              }
+            ]
+            name "cliff_sensor_right_link"
+            physics Physics {
+              density -1
+              mass 0.000100
+              centerOfMass [ 0.000000 0.000000 0.000000 ]
+              inertiaMatrix [
+                1.000000e-04 1.000000e-04 1.000000e-04
+                0.000000e+00 0.000000e+00 0.000000e+00
+              ]
+            }
+          }
+          Solid {
+            translation 0.156000 0.000000 0.021400
+            rotation 0.000000 1.000000 0.000000 1.570796
+            children [
+              Lidar {
+                name "cliff_sensor_front"
+                fieldOfView 0.087200
+                horizontalResolution 50
+                numberOfLayers 1
+                minRange 0.010000
+                maxRange 0.150000
+                resolution 1.000000
+              }
+            ]
+            name "cliff_sensor_front_link"
+            physics Physics {
+              density -1
+              mass 0.000100
+              centerOfMass [ 0.000000 0.000000 0.000000 ]
+              inertiaMatrix [
+                1.000000e-04 1.000000e-04 1.000000e-04
+                0.000000e+00 0.000000e+00 0.000000e+00
+              ]
+            }
+          }
+        ]
+        name "base_link"
+        boundingObject Transform {
+          translation 0.000000 0.000000 0.059490
+          rotation 1.000000 0.000000 0.000000 1.570796
+          children [
+            Cylinder {
+              radius 0.178
+              height 0.10938
+            }
+          ]
+        }
+        physics Physics {
+          density -1
+          mass 2.400000
+          centerOfMass [ 0.010000 0.000000 0.000000 ]
+          inertiaMatrix [
+            1.999500e-02 1.999500e-02 3.675000e-02
+            0.000000e+00 0.000000e+00 0.000000e+00
+          ]
+        }
+      }
+    ]
+    name IS name 
+  }
+}
