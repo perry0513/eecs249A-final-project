@@ -24,6 +24,8 @@
 #include <webots/Receiver.hpp>
 #include <webots/Robot.hpp>
 #include <webots/utils/AnsiCodes.hpp>
+#include <webots/Lidar.hpp>
+#include <webots/Gyro.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -50,7 +52,9 @@ private:
   /* Receiver *receiver; */
   /* Camera *camera; */
   /* DistanceSensor *distanceSensors[2]; */
-  Motor *motors[2];
+  Lidar * lidars[3];
+  Motor * motors[2];
+  Gyro * gyro;
 };
 
 Kobuki::Kobuki() {
@@ -66,6 +70,19 @@ Kobuki::Kobuki() {
   motors[1]->setPosition(std::numeric_limits<double>::infinity());
   motors[0]->setVelocity(0.0);
   motors[1]->setVelocity(0.0);
+  
+  lidars[0] = getLidar("cliff_sensor_left");
+  lidars[1] = getLidar("cliff_sensor_right");
+  lidars[2] = getLidar("cliff_sensor_front");
+
+  gyro = getGyro("gyro");
+
+  for (int i = 0; i < 3; ++i) {
+    lidars[i]->enable(timeStep);
+    // lidars[i]->enablePointCloud();
+  }
+
+  gyro->enable(timeStep);
   /* string distanceSensorNames("ds0"); */
   /* for (int i = 0; i < 2; i++) { */
   /*   distanceSensors[i] = getDistanceSensor(distanceSensorNames); */
@@ -97,7 +114,7 @@ void Kobuki::run() {
     /*   else if (message.compare("turn") == 0) */
     /*     mode = TURN; */
     /* } */
-    mode = MOVE_FORWARD;
+    mode = TURN;
     /* double delta = distanceSensors[0]->getValue() - distanceSensors[1]->getValue(); */
     double delta = .1;
     double speeds[2] = {0.0, 0.0};
@@ -121,6 +138,18 @@ void Kobuki::run() {
     }
     motors[0]->setVelocity(speeds[0]);
     motors[1]->setVelocity(speeds[1]);
+    
+    const double * values = gyro->getValues();
+    std::cout << "x: " << values[0] << ", y: " << values[1] << ", z: " << values[2] << '\n'; // angular velocity
+    // std::cout << lidars[0]->isPointCloudEnabled() << '\n';
+    // std::cout << lidars[0]->getNumberOfPoints() << '\n';
+    // const LidarPoint * lidarPoints = lidars[2]->getPointCloud();
+    // int numPoints = lidars[0]->getNumberOfPoints();
+    const float * rangeImage = lidars[0]->getRangeImage();
+    int resolution = lidars[0]->getHorizontalResolution();
+    for (int i = 0; i < resolution; ++i)
+      cout << rangeImage[i] << ' ';
+    cout << '\n';
   }
 }
 

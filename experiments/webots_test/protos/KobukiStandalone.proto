@@ -8,7 +8,7 @@ PROTO KobukiStandalone [
   field  SFVec3f     translation     0 0 0
   field  SFRotation  rotation        1 0 0 -1.5708
   field  SFString    name            "KobukiStandalone"  # Is `Robot.name`.
-  field  SFString    controller      "kobuki"              # Is `Robot.controller`.
+  field  SFString    controller      "kobuki"            # Is `Robot.controller`.
   field  MFString    controllerArgs  []                  # Is `Robot.controllerArgs`.
   field  SFString    customData      ""                  # Is `Robot.customData`.
   field  SFBool      supervisor      FALSE               # Is `Robot.supervisor`.
@@ -210,7 +210,12 @@ PROTO KobukiStandalone [
           }
           Solid {
             translation 0.056000 0.062000 0.020200
-            rotation 0.000000 1.000000 0.000000 0.000000
+            rotation 0.000000 0.000000 1.000000 0.000000
+            children [
+              Gyro {
+                name "gyro"
+              }
+            ]
             name "gyro_link"
             physics Physics {
               density -1
@@ -224,8 +229,11 @@ PROTO KobukiStandalone [
           }
           Solid {
             translation 0.087340 0.136010 0.021400
-            rotation 0.000000 1.000000 0.000000 1.570796
+            rotation 0.000000 0.000000 1.000000 1.570796
             children [
+              DistanceSensor {
+
+              }
               Lidar {
                 name "cliff_sensor_left"
                 fieldOfView 0.087200
@@ -233,7 +241,7 @@ PROTO KobukiStandalone [
                 numberOfLayers 1
                 minRange 0.010000
                 maxRange 0.150000
-                resolution 1.000000
+                resolution -1.000000
               }
             ]
             name "cliff_sensor_left_link"
@@ -249,7 +257,7 @@ PROTO KobukiStandalone [
           }
           Solid {
             translation 0.085000 -0.136010 0.021400
-            rotation 0.000000 1.000000 0.000000 1.570796
+            rotation 0.000000 0.000000 1.000000 1.570796
             children [
               Lidar {
                 name "cliff_sensor_right"
@@ -258,7 +266,7 @@ PROTO KobukiStandalone [
                 numberOfLayers 1
                 minRange 0.010000
                 maxRange 0.150000
-                resolution 1.000000
+                resolution -1.000000
               }
             ]
             name "cliff_sensor_right_link"
@@ -274,7 +282,7 @@ PROTO KobukiStandalone [
           }
           Solid {
             translation 0.156000 0.000000 0.021400
-            rotation 0.000000 1.000000 0.000000 1.570796
+            rotation 0.000000 0.000000 1.000000 1.570796
             children [
               Lidar {
                 name "cliff_sensor_front"
@@ -283,7 +291,7 @@ PROTO KobukiStandalone [
                 numberOfLayers 1
                 minRange 0.010000
                 maxRange 0.150000
-                resolution 1.000000
+                resolution -1.000000
               }
             ]
             name "cliff_sensor_front_link"
