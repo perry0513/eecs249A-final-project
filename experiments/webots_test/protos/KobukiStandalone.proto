@@ -308,28 +308,39 @@ PROTO KobukiStandalone [
             children [
               TouchSensor {
                 name "bump_sensor_left"
+                type "bumper"
+                boundingObject Transform {
+                  translation 0.000000 0.000000 0.000000
+                  rotation 0.000000 0.000000 1.000000 -0.6
+                  children [
+                    Cylinder {
+                      radius 0.017
+                      height 0.14
+                    }
+                  ]
+                }
               }
             ]
             name "bump_sensor_left_link"
-            boundingObject Transform {
-              translation 0.000000 0.000000 0.000000
-              rotation 0.000000 0.000000 1.000000 -0.6
-              children [
-                Cylinder {
-                  radius 0.017
-                  height 0.14
-                }
-              ]
-            }
-            physics Physics {
-              density -1
-              mass 0.000100
-              centerOfMass [ 0.000000 0.000000 0.000000 ]
-              inertiaMatrix [
-                1.000000e-04 1.000000e-04 1.000000e-04
-                0.000000e+00 0.000000e+00 0.000000e+00
-              ]
-            }
+            /* boundingObject Transform { */
+            /*   translation 0.000000 0.000000 0.000000 */
+            /*   rotation 0.000000 0.000000 1.000000 -0.6 */
+            /*   children [ */
+            /*     Cylinder { */
+            /*       radius 0.017 */
+            /*       height 0.14 */
+            /*     } */
+            /*   ] */
+            /* } */
+            /* physics Physics { */
+            /*   density -1 */
+            /*   mass 0.000100 */
+            /*   centerOfMass [ 0.000000 0.000000 0.000000 ] */
+            /*   inertiaMatrix [ */
+            /*     1.000000e-04 1.000000e-04 1.000000e-04 */
+            /*     0.000000e+00 0.000000e+00 0.000000e+00 */
+            /*   ] */
+            /* } */
           }
           Solid {
             translation 0.091000 -0.141010 0.021400
@@ -337,28 +348,39 @@ PROTO KobukiStandalone [
             children [
               TouchSensor {
                 name "bump_sensor_right"
+                type "bumper"
+                boundingObject Transform {
+                  translation 0.000000 0.000000 0.000000
+                  rotation 0.000000 0.000000 1.000000 0.6
+                  children [
+                    Cylinder {
+                      radius 0.017
+                      height 0.14
+                    }
+                  ]
+                }
               }
             ]
             name "bump_sensor_right_link"
-            boundingObject Transform {
-              translation 0.000000 0.000000 0.000000
-              rotation 0.000000 0.000000 1.000000 0.6
-              children [
-                Cylinder {
-                  radius 0.017
-                  height 0.14
-                }
-              ]
-            }
-            physics Physics {
-              density -1
-              mass 0.000100
-              centerOfMass [ 0.000000 0.000000 0.000000 ]
-              inertiaMatrix [
-                1.000000e-04 1.000000e-04 1.000000e-04
-                0.000000e+00 0.000000e+00 0.000000e+00
-              ]
-            }
+            /* boundingObject Transform { */
+            /*   translation 0.000000 0.000000 0.000000 */
+            /*   rotation 0.000000 0.000000 1.000000 0.6 */
+            /*   children [ */
+            /*     Cylinder { */
+            /*       radius 0.017 */
+            /*       height 0.14 */
+            /*     } */
+            /*   ] */
+            /* } */
+            /* physics Physics { */
+            /*   density -1 */
+            /*   mass 0.000100 */
+            /*   centerOfMass [ 0.000000 0.000000 0.000000 ] */
+            /*   inertiaMatrix [ */
+            /*     1.000000e-04 1.000000e-04 1.000000e-04 */
+            /*     0.000000e+00 0.000000e+00 0.000000e+00 */
+            /*   ] */
+            /* } */
           }
           Solid {
             translation 0.1700 0.000000 0.021400
@@ -366,28 +388,39 @@ PROTO KobukiStandalone [
             children [
               TouchSensor {
                 name "bump_sensor_front"
+                type "bumper"
+                boundingObject Transform {
+                  translation 0.000000 0.000000 0.000000
+                  rotation 0.000000 0.000000 1.000000 1.57
+                  children [
+                    Cylinder {
+                      radius 0.017
+                      height 0.14
+                    }
+                  ]
+                }
               }
             ]
-            name "bump_sensor_front_link"
-            boundingObject Transform {
-              translation 0.000000 0.000000 0.000000
-              rotation 0.000000 0.000000 1.000000 1.57
-              children [
-                Cylinder {
-                  radius 0.017
-                  height 0.14
-                }
-              ]
-            }
-            physics Physics {
-              density -1
-              mass 0.000100
-              centerOfMass [ 0.000000 0.000000 0.000000 ]
-              inertiaMatrix [
-                1.000000e-04 1.000000e-04 1.000000e-04
-                0.000000e+00 0.000000e+00 0.000000e+00
-              ]
-            }
+            /* name "bump_sensor_front_link" */
+            /* boundingObject Transform { */
+            /*   translation 0.000000 0.000000 0.000000 */
+            /*   rotation 0.000000 0.000000 1.000000 1.57 */
+            /*   children [ */
+            /*     Cylinder { */
+            /*       radius 0.017 */
+            /*       height 0.14 */
+            /*     } */
+            /*   ] */
+            /* } */
+            /* physics Physics { */
+            /*   density -1 */
+            /*   mass 0.000100 */
+            /*   centerOfMass [ 0.000000 0.000000 0.000000 ] */
+            /*   inertiaMatrix [ */
+            /*     1.000000e-04 1.000000e-04 1.000000e-04 */
+            /*     0.000000e+00 0.000000e+00 0.000000e+00 */
+            /*   ] */
+            /* } */
           }
         ]
         name "base_link"
