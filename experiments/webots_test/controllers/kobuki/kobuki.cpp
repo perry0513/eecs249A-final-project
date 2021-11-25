@@ -18,15 +18,17 @@
  *               behavior.
  */
 
-#include <webots/Camera.hpp>
-#include <webots/DistanceSensor.hpp>
-#include <webots/Motor.hpp>
-#include <webots/Receiver.hpp>
-#include <webots/Robot.hpp>
-#include <webots/utils/AnsiCodes.hpp>
-#include <webots/Lidar.hpp>
-#include <webots/Gyro.hpp>
-#include <webots/TouchSensor.hpp>
+/* #include <webots/Camera.hpp> */
+/* #include <webots/DistanceSensor.hpp> */
+/* #include <webots/Motor.hpp> */
+/* #include <webots/Receiver.hpp> */
+/* #include <webots/Robot.hpp> */
+/* #include <webots/utils/AnsiCodes.hpp> */
+/* #include <webots/Lidar.hpp> */
+/* #include <webots/Gyro.hpp> */
+/* #include <webots/TouchSensor.hpp> */
+
+#include "devices.h"
 
 #include <algorithm>
 #include <iostream>
@@ -38,57 +40,64 @@ using namespace webots;
 
 static const double maxSpeed = 7.0;
 
-class Kobuki : public Robot {
+class Kobuki {
 public:
-  Kobuki();
+  Kobuki(int timestep = 32);
   void run();
+
 
 private:
   enum Mode { STOP, MOVE_FORWARD, AVOID_OBSTACLES, TURN };
 
   static double boundSpeed(double speed);
 
+  void init_sensors(int timestep);
+  void set_motor(double leftSpeed, double rightSpeed);
+  
+
   int timeStep;
   Mode mode;
   /* Receiver *receiver; */
   /* Camera *camera; */
   /* DistanceSensor *distanceSensors[2]; */
-  Gyro * gyro;
-  Motor * motors[2];
-  Lidar * lidars[3];
-  TouchSensor * bumpSensors[3];
+  /* Gyro * gyro; */
+  /* Motor * motors[2]; */
+  /* Lidar * lidars[3]; */
+  /* TouchSensor * bumpSensors[3]; */
+  Devices devices;
 };
 
-Kobuki::Kobuki() {
-  timeStep = 32;
+Kobuki::Kobuki(int timestep) {
+  timeStep = timestep;
   mode = AVOID_OBSTACLES;
+  devices.init(timeStep);
   /* camera = getCamera("camera"); */
   /* camera->enable(4 * timeStep); */
   /* receiver = getReceiver("receiver"); */
   /* receiver->enable(timeStep); */
-  gyro = getGyro("gyro");
-  gyro->enable(timeStep);
+  /* gyro = getGyro("gyro"); */
+  /* gyro->enable(timeStep); */
   
-  motors[0] = getMotor("wheel_left_joint");
-  motors[1] = getMotor("wheel_right_joint");
-  motors[0]->setPosition(std::numeric_limits<double>::infinity());
-  motors[1]->setPosition(std::numeric_limits<double>::infinity());
-  motors[0]->setVelocity(0.0);
-  motors[1]->setVelocity(0.0);
+  /* motors[0] = getMotor("wheel_left_joint"); */
+  /* motors[1] = getMotor("wheel_right_joint"); */
+  /* motors[0]->setPosition(std::numeric_limits<double>::infinity()); */
+  /* motors[1]->setPosition(std::numeric_limits<double>::infinity()); */
+  /* motors[0]->setVelocity(0.0); */
+  /* motors[1]->setVelocity(0.0); */
   
-  lidars[0] = getLidar("cliff_sensor_left");
-  lidars[1] = getLidar("cliff_sensor_right");
-  lidars[2] = getLidar("cliff_sensor_front");
+  /* lidars[0] = getLidar("cliff_sensor_left"); */
+  /* lidars[1] = getLidar("cliff_sensor_right"); */
+  /* lidars[2] = getLidar("cliff_sensor_front"); */
   
-  for (int i = 0; i < 3; ++i)
-    lidars[i]->enable(timeStep);
+  /* for (int i = 0; i < 3; ++i) */
+  /*   lidars[i]->enable(timeStep); */
     
-  bumpSensors[0] = getTouchSensor("bump_sensor_left");
-  bumpSensors[1] = getTouchSensor("bump_sensor_right");
-  bumpSensors[2] = getTouchSensor("bump_sensor_front");
+  /* bumpSensors[0] = getTouchSensor("bump_sensor_left"); */
+  /* bumpSensors[1] = getTouchSensor("bump_sensor_right"); */
+  /* bumpSensors[2] = getTouchSensor("bump_sensor_front"); */
   
-  for (int i = 0; i < 3; ++i)
-    bumpSensors[i]->enable(timeStep);
+  /* for (int i = 0; i < 3; ++i) */
+  /*   bumpSensors[i]->enable(timeStep); */
 
   /* string distanceSensorNames("ds0"); */
   /* for (int i = 0; i < 2; i++) { */
@@ -104,7 +113,7 @@ double Kobuki::boundSpeed(double speed) {
 
 void Kobuki::run() {
   // main loop
-  while (step(timeStep) != -1) {
+  while (devices.step(timeStep) != -1) {
     // Read sensors, particularly the order of the supervisor
     /* if (receiver->getQueueLength() > 0) { */
     /*   string message((const char *)receiver->getData()); */
@@ -143,25 +152,43 @@ void Kobuki::run() {
       default:
         break;
     }
-    motors[0]->setVelocity(speeds[0]);
-    motors[1]->setVelocity(speeds[1]);
+    /* motors[0]->setVelocity(speeds[0]); */
+    /* motors[1]->setVelocity(speeds[1]); */
+    devices.setMotor(speeds[0], speeds[1]);
     
-    const double * gyroVals = gyro->getValues();
-    std::cout << "x: " << gyroVals[0] << ", y: " << gyroVals[1] 
-              << ", z: " << gyroVals[2] << '\n'; // angular velocity
+    GyroMeasurement_t gm;
+    devices.readGyro(gm);
+    cout << gm << '\n';
+    /* std::cout << "x: " << gm.x << ", y: " << gm.y */ 
+    /*           << ", z: " << gm.z << '\n'; // angular velocity */
+    /* const double * gyroVals = gyro->getValues(); */
+    /* std::cout << "x: " << gyroVals[0] << ", y: " << gyroVals[1] */ 
+    /*           << ", z: " << gyroVals[2] << '\n'; // angular velocity */
     // std::cout << lidars[0]->isPointCloudEnabled() << '\n';
     // std::cout << lidars[0]->getNumberOfPoints() << '\n';
     // const LidarPoint * lidarPoints = lidars[2]->getPointCloud();
     // int numPoints = lidars[0]->getNumberOfPoints();
-    const float * rangeImage = lidars[0]->getRangeImage();
-    int resolution = lidars[0]->getHorizontalResolution();
-    for (int i = 0; i < resolution; ++i)
-      cout << rangeImage[i] << ' ';
+    
+    LidarMeasurement_t lm;
+    devices.readLidarImage(lm);
+    for (int i = 0; i < devices.getLidarHorizontalResolution(); ++i)
+      cout << lm.left[i] << ' ';
     cout << '\n';
+    
+    /* const float * rangeImage = lidars[0]->getRangeImage(); */
+    /* int resolution = lidars[0]->getHorizontalResolution(); */
+    /* for (int i = 0; i < resolution; ++i) */
+    /*   cout << rangeImage[i] << ' '; */
+    /* cout << '\n'; */
 
-    std::cout <<    "left: " << bool(bumpSensors[0]->getValue())
-              << ", right: " << bool(bumpSensors[1]->getValue())
-              << ", front: " << bool(bumpSensors[2]->getValue()) << '\n';
+    BumpMeasurement_t bm;
+    devices.readBump(bm);
+    cout << bm << '\n';
+    /* std::cout << "left: " << bm.left << ", right: " << bm.right */
+    /*           << ", front: " << bm.front << '\n'; */
+    /* std::cout <<    "left: " << bool(bumpSensors[0]->getValue()) */
+    /*           << ", right: " << bool(bumpSensors[1]->getValue()) */
+    /*           << ", front: " << bool(bumpSensors[2]->getValue()) << '\n'; */
   }
 }
 
