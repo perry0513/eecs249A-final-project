@@ -54,5 +54,11 @@ public:
     void readBump(BumpMeasurement_t& bm);
     void readLidarImage(LidarMeasurement_t& lm);
     int getLidarHorizontalResolution();
+    float getBatteryLevel();
+    void chargeBattery();
     void setMotor(double leftSpeed, double rightSpeed);
+
+private:
+    chrono::time_point<chrono::steady_clock> start;
+    float timeElapsedAfterLastCharge();
 };

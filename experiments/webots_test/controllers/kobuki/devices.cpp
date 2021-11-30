@@ -1,3 +1,4 @@
+#include <chrono>
 #include "devices.h"
 
 Devices::Devices(int ts) {
@@ -28,6 +29,8 @@ void Devices::init(int ts) {
 
     for (int i = 0; i < 3; ++i)
     bumpSensors[i]->enable(timeStep);
+
+    start = chrono::steady_clock::now();
 }
 
 
@@ -54,8 +57,20 @@ int Devices::getLidarHorizontalResolution() {
     return lidars[0]->getHorizontalResolution();
 }
 
+float Devices::getBatteryLevel() {
+    return 100 - timeElapsedAfterLastCharge() / 5.0;
+}
+
 void Devices::setMotor(double leftSpeed, double rightSpeed) {
     motors[0]->setVelocity(leftSpeed);
     motors[1]->setVelocity(rightSpeed);
 }
 
+/* private methods */
+float Devices::timeElapsedAfterLastCharge() {
+    return chrono::duration_cast<chrono::seconds>(chrono::steady_clock::now() - start).count();
+}
+
+void Devices::chargeBattery() {
+    start = chrono::steady_clock::now();
+}
