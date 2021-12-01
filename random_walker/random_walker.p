@@ -7,7 +7,7 @@ fun TurnLeft(): int;
 fun GetIsBumperReleasedLeft(): bool;
 fun GetIsBumperReleasedRight(): bool;
 
-machine Robot {
+machine RandomWalker {
 
     fun DM(): string {
     	var isBumperReleasedLeft: bool;
@@ -57,7 +57,7 @@ machine Robot {
 
     state Run {
         rtamodule {
-            controller AC period 200 ms;
+            controller AC period 50 ms;
             controller SC1 period 200 ms;
             controller SC2 period 200 ms;
             decisionmodule DM @ {AC: 1, SC1:10, SC2:10};

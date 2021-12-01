@@ -1,4 +1,4 @@
-#include "robot.h"
+#include "random_walker.h"
 #include "Prt.h"
 #include <stdio.h>
 #include <cstring>
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
         PrtUpdateAssertFn(MyAssert);
         PRT_UINT32 machineId;
-        PRT_BOOLEAN foundMainMachine = PrtLookupMachineByName("Robot", &machineId); // Sets up the P program, but starting at the Task Planner.
+        PRT_BOOLEAN foundMainMachine = PrtLookupMachineByName("RandomWalker", &machineId); // Sets up the P program, but starting at the Task Planner.
         
         if (foundMainMachine == PRT_FALSE) {
             printf("%s\n", "FAILED TO FIND DroneMachine");
