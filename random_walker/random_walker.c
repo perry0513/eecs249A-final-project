@@ -601,6 +601,7 @@ PRT_VALUE* P_Anon_IMPL_1(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
     PRT_VALUE P_LIT_INT32_2 = { PRT_VALUE_KIND_INT, { .nt = 200 } };
     PRT_VALUE P_LIT_INT32_3 = { PRT_VALUE_KIND_INT, { .nt = 6 } };
     PRT_VALUE P_LIT_INT32_4 = { PRT_VALUE_KIND_INT, { .nt = 1 } };
+    PRT_VALUE P_LIT_INT32_5 = { PRT_VALUE_KIND_INT, { .nt = 50 } };
     PRT_VALUE P_LIT_BOOLEAN_1 = { PRT_VALUE_KIND_BOOL, { .bl = PRT_TRUE } };
     PRT_VALUE** P_LVALUE_15 = &(PTMP_tmp0_3);
     PrtFreeValue(*P_LVALUE_15);
@@ -695,7 +696,7 @@ PRT_VALUE* P_Anon_IMPL_1(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
                 
                 PRT_VALUE** P_LVALUE_27 = &(p_this->varValues[4]);
                 PrtFreeValue(*P_LVALUE_27);
-                *P_LVALUE_27 = PrtCloneValue((&P_LIT_INT32_2));
+                *P_LVALUE_27 = PrtCloneValue((&P_LIT_INT32_5));
                 
                 PRT_VALUE** P_LVALUE_28 = &(p_this->varValues[5]);
                 PrtFreeValue(*P_LVALUE_28);
@@ -830,7 +831,7 @@ PRT_VALUE* P_Anon_IMPL_1(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
                     
                     PRT_VALUE** P_LVALUE_44 = &(p_this->varValues[4]);
                     PrtFreeValue(*P_LVALUE_44);
-                    *P_LVALUE_44 = PrtCloneValue((&P_LIT_INT32_2));
+                    *P_LVALUE_44 = PrtCloneValue((&P_LIT_INT32_5));
                     
                     PRT_VALUE** P_LVALUE_45 = &(p_this->varValues[5]);
                     PrtFreeValue(*P_LVALUE_45);
@@ -940,7 +941,7 @@ PRT_VALUE* P_Anon_IMPL_1(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
                     
                     PRT_VALUE** P_LVALUE_58 = &(p_this->varValues[4]);
                     PrtFreeValue(*P_LVALUE_58);
-                    *P_LVALUE_58 = PrtCloneValue((&P_LIT_INT32_2));
+                    *P_LVALUE_58 = PrtCloneValue((&P_LIT_INT32_5));
                     
                     PRT_VALUE** P_LVALUE_59 = &(p_this->varValues[5]);
                     PrtFreeValue(*P_LVALUE_59);
@@ -1032,7 +1033,7 @@ PRT_VALUE* P_Anon_IMPL_2(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
     PRT_MACHINEINST_PRIV* p_this = (PRT_MACHINEINST_PRIV*)context;
     PRT_VALUE* _P_GEN_retval = NULL;
     PRT_VALUE _P_GEN_null = { PRT_VALUE_KIND_NULL, { .ev = PRT_SPECIAL_EVENT_NULL } };
-    PRT_VALUE P_LIT_INT32_5 = { PRT_VALUE_KIND_INT, { .nt = 0 } };
+    PRT_VALUE P_LIT_INT32_6 = { PRT_VALUE_KIND_INT, { .nt = 0 } };
     PRT_VALUE P_LIT_BOOLEAN_2 = { PRT_VALUE_KIND_BOOL, { .bl = PRT_FALSE } };
     PRT_VALUE** P_LVALUE_65 = &(p_this->varValues[0]);
     PrtFreeValue(*P_LVALUE_65);
@@ -1040,7 +1041,7 @@ PRT_VALUE* P_Anon_IMPL_2(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
     
     PRT_VALUE** P_LVALUE_66 = &(p_this->varValues[3]);
     PrtFreeValue(*P_LVALUE_66);
-    *P_LVALUE_66 = PrtCloneValue((&P_LIT_INT32_5));
+    *P_LVALUE_66 = PrtCloneValue((&P_LIT_INT32_6));
     
 p_return_6: ;
     return _P_GEN_retval;
