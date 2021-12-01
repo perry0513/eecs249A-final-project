@@ -19,8 +19,8 @@ macro(kobuki_core_add_demo name)
   set(target_name kobuki_core_demo_${name})
   add_executable(${target_name}
   ${name}.cpp
-  robot.h
-  robot.c
+  random_walker.h
+  random_walker.c
   helper.hpp
   helper.cpp
   /home/ubuntu/P-RTA/P/Bld/Drops/Prt/include/ext_compat.h
@@ -56,5 +56,5 @@ endmacro()
 # Tests
 ###############################################################################
 
-kobuki_core_add_demo(Main)
+kobuki_core_add_demo(random_walker_main)
 

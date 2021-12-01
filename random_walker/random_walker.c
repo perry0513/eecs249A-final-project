@@ -1,4 +1,4 @@
-#include "robot.h"
+#include "random_walker.h"
 
 // Type universe for program:
 static PRT_TYPE P_GEND_TYPE_n = { PRT_KIND_NULL, { NULL } };
@@ -117,23 +117,23 @@ PRT_FUNDECL P_FUNCTION_GetIsBumperReleasedRight =
 };
 
 
-PRT_EVENTDECL* P_Robot_RECV_INNER[] = { &_P_EVENT_HALT_STRUCT };
-PRT_EVENTSETDECL P_EVENTSET_Robot_RECV =
+PRT_EVENTDECL* P_RandomWalker_RECV_INNER[] = { &_P_EVENT_HALT_STRUCT };
+PRT_EVENTSETDECL P_EVENTSET_RandomWalker_RECV =
 {
     1U,
-    P_Robot_RECV_INNER,
+    P_RandomWalker_RECV_INNER,
     NULL
 };
 
-PRT_INTERFACEDECL P_I_Robot =
+PRT_INTERFACEDECL P_I_RandomWalker =
 {
     0U,
-    "Robot",
+    "RandomWalker",
     &P_GEND_TYPE_n,
-    &P_EVENTSET_Robot_RECV
+    &P_EVENTSET_RandomWalker_RECV
 };
 
-PRT_VARDECL P_Robot_VARS[] = {
+PRT_VARDECL P_RandomWalker_VARS[] = {
     { "", &P_GEND_TYPE_b },
     { "", &P_GEND_TYPE_r },
     { "", &P_GEND_TYPE_i },
@@ -166,9 +166,9 @@ PRT_EVENTSETDECL P_EVENTSET_Init_DOS =
     NULL
 };
 
-#define P_STATE_Robot_Init \
+#define P_STATE_RandomWalker_Init \
 { \
-    "Robot.Init", \
+    "RandomWalker.Init", \
     0U, \
     0U, \
     &P_EVENTSET_Init_DEFERS, \
@@ -206,9 +206,9 @@ PRT_EVENTSETDECL P_EVENTSET_Run_DOS =
     NULL
 };
 
-#define P_STATE_Robot_Run \
+#define P_STATE_RandomWalker_Run \
 { \
-    "Robot.Run", \
+    "RandomWalker.Run", \
     0U, \
     0U, \
     &P_EVENTSET_Run_DEFERS, \
@@ -222,7 +222,7 @@ PRT_EVENTSETDECL P_EVENTSET_Run_DOS =
     0, \
 }
 
-PRT_STATEDECL P_Robot_STATES[] = { P_STATE_Robot_Init, P_STATE_Robot_Run };
+PRT_STATEDECL P_RandomWalker_STATES[] = { P_STATE_RandomWalker_Init, P_STATE_RandomWalker_Run };
 
 PRT_VALUE* P_DM_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
 {
@@ -1055,30 +1055,30 @@ PRT_FUNDECL P_FUNCTION_Anon_1 =
 };
 
 
-PRT_FUNDECL* P_Robot_METHODS[] = { &P_FUNCTION_DM, &P_FUNCTION_AC, &P_FUNCTION_SC1, &P_FUNCTION_SC2, &P_FUNCTION_Anon, &P_FUNCTION_Anon_2, &P_FUNCTION_Anon_1 };
+PRT_FUNDECL* P_RandomWalker_METHODS[] = { &P_FUNCTION_DM, &P_FUNCTION_AC, &P_FUNCTION_SC1, &P_FUNCTION_SC2, &P_FUNCTION_Anon, &P_FUNCTION_Anon_2, &P_FUNCTION_Anon_1 };
 
-PRT_EVENTDECL* P_Robot_RECV_INNER_1[] = { &_P_EVENT_HALT_STRUCT };
-PRT_EVENTSETDECL P_EVENTSET_Robot_RECV_1 =
+PRT_EVENTDECL* P_RandomWalker_RECV_INNER_1[] = { &_P_EVENT_HALT_STRUCT };
+PRT_EVENTSETDECL P_EVENTSET_RandomWalker_RECV_1 =
 {
     1U,
-    P_Robot_RECV_INNER_1,
+    P_RandomWalker_RECV_INNER_1,
     NULL
 };
 
-PRT_EVENTDECL* P_Robot_SEND_INNER[] = { &_P_EVENT_HALT_STRUCT };
-PRT_EVENTSETDECL P_EVENTSET_Robot_SEND =
+PRT_EVENTDECL* P_RandomWalker_SEND_INNER[] = { &_P_EVENT_HALT_STRUCT };
+PRT_EVENTSETDECL P_EVENTSET_RandomWalker_SEND =
 {
     1U,
-    P_Robot_SEND_INNER,
+    P_RandomWalker_SEND_INNER,
     NULL
 };
 
-PRT_MACHINEDECL P_MACHINE_Robot = 
+PRT_MACHINEDECL P_MACHINE_RandomWalker = 
 {
     0U,
-    "Robot",
-    &P_EVENTSET_Robot_RECV_1,
-    &P_EVENTSET_Robot_SEND,
+    "RandomWalker",
+    &P_EVENTSET_RandomWalker_RECV_1,
+    &P_EVENTSET_RandomWalker_SEND,
     NULL,
     6U,
     2U,
@@ -1086,14 +1086,14 @@ PRT_MACHINEDECL P_MACHINE_Robot =
     4294967295U,
     0U,
     0U,
-    P_Robot_VARS,
-    P_Robot_STATES,
-    P_Robot_METHODS
+    P_RandomWalker_VARS,
+    P_RandomWalker_STATES,
+    P_RandomWalker_METHODS
 };
 
 PRT_EVENTDECL* P_ALL_EVENTS[] = { &_P_EVENT_NULL_STRUCT, &_P_EVENT_HALT_STRUCT };
-PRT_MACHINEDECL* P_ALL_MACHINES[] = { &P_MACHINE_Robot };
-PRT_INTERFACEDECL* P_ALL_INTERFACES[] = { &P_I_Robot };
+PRT_MACHINEDECL* P_ALL_MACHINES[] = { &P_MACHINE_RandomWalker };
+PRT_INTERFACEDECL* P_ALL_INTERFACES[] = { &P_I_RandomWalker };
 PRT_FUNDECL* P_ALL_FUNCTIONS[] = { NULL };
 PRT_FOREIGNTYPEDECL* P_ALL_FOREIGN_TYPES[] = { NULL };
 int P_DefaultImpl_LME_0[] = { -1 };

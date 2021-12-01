@@ -7,7 +7,7 @@ fun TurnLeft(): int;
 fun GetIsBumperReleasedLeft(): bool;
 fun GetIsBumperReleasedRight(): bool;
 
-machine Robot {
+machine RandomWalker {
 
     fun DM(): string {
     	var isBumperReleasedLeft: bool;

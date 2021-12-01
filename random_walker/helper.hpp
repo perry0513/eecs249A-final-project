@@ -1,4 +1,4 @@
-#include "robot.h"
+#include "random_walker.h"
 
 extern "C" PRT_VALUE* P_Init_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs);
 
