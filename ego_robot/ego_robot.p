@@ -433,6 +433,9 @@ machine MotionPrimitives {
             controller AdvancedMotionController period 50 ms;
             controller LeftObstacleAvoidanceController period 200 ms;
             controller RightObstacleAvoidanceController period 200 ms;
+            controller LeftCliffAvoidanceController period 200 ms;
+            controller RightCliffAvoidanceController period 200 ms;
+            controller CenterCliffAvoidanceController period 200 ms;
             decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20, LeftCliffAvoidanceController: 20, RightCliffAvoidanceController: 20, CenterCliffAvoidanceController: 20};
         }
         on eMotion do (payload: locationType) {
@@ -455,6 +458,9 @@ machine MotionPrimitives {
             controller AdvancedMotionController period 50 ms;
             controller LeftObstacleAvoidanceController period 200 ms;
             controller RightObstacleAvoidanceController period 200 ms;
+            controller LeftCliffAvoidanceController period 200 ms;
+            controller RightCliffAvoidanceController period 200 ms;
+            controller CenterCliffAvoidanceController period 200 ms;
             decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20, LeftCliffAvoidanceController: 20, RightCliffAvoidanceController: 20, CenterCliffAvoidanceController: 20};
         }
         on eMotionX do (payload: locationType) {
