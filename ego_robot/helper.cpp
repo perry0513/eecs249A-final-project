@@ -67,6 +67,9 @@ public:
     slot_stream_data(&KobukiManager::processStreamData, *this),
     slot_bumper_event(&KobukiManager::processBumperEvent, *this),
     slot_button_event(&KobukiManager::processButtonEvent, *this)
+    slot_cliff_event(&KobukiManager::processCliffEvent, *this),
+    is_bumper_released_left(true), is_bumper_released_right(true),
+    is_cliff_left(false), is_cliff_center(false), is_cliff_right(false),
   {
     kobuki::Parameters parameters;
     parameters.sigslots_namespace = "/kobuki";
@@ -78,6 +81,7 @@ public:
     slot_stream_data.connect("/kobuki/stream_data");
     slot_bumper_event.connect("/kobuki/bumper_event");
     slot_button_event.connect("/kobuki/button_event");
+    slot_cliff_event.connect("/kobuki/cliff_event");
   }
 
   ~KobukiManager() {
@@ -133,6 +137,22 @@ public:
           is_button_pressed_and_released_b0 = true;
         }
         is_button_pressed_b0 = false;
+      }
+    }
+  }
+
+  void processCliffEvent(const kobuki::CliffEvent &event) {
+    if (event.state == kobuki::CliffEvent.Cliff) {
+      switch (event.sensor) {
+        case kobuki::CliffEvent.Left  : is_cliff_left   = true; break;
+        case kobuki::CliffEvent.Center: is_cliff_center = true; break;
+        case kobuki::CliffEvent.Right : is_cliff_right  = true; break;
+      }
+    } else if (event.state == kobuki::CliffEvent.Floor) {
+      switch (event.sensor) {
+        case kobuki::CliffEvent.Left  : is_cliff_left   = false; break;
+        case kobuki::CliffEvent.Center: is_cliff_center = false; break;
+        case kobuki::CliffEvent.Right : is_cliff_right  = false; break;
       }
     }
   }
@@ -193,14 +213,18 @@ public:
     return is_bumper_released_right;
   }
 
-  bool get_is_button_pressed_and_released_b0() {
-    if (is_button_pressed_and_released_b0) {
-      is_button_pressed_and_released_b0 = false;
-      return true;
-    }
-    return false;
+  bool get_is_cliff_left() {
+    return is_cliff_left;
   }
 
+  bool get_is_cliff_center() {
+    return is_cliff_center;
+  }
+
+  bool get_is_cliff_right() {
+    return is_cliff_right;
+  }
+  
 private:
   double dx, dth;
   const double length;
@@ -209,10 +233,14 @@ private:
   ecl::Slot<> slot_stream_data;
   ecl::Slot<const kobuki::BumperEvent&> slot_bumper_event;
   ecl::Slot<const kobuki::ButtonEvent&> slot_button_event;
+  ecl::Slot<const kobuki::CliffEvent&> slot_cliff_event;
   bool is_bumper_released_left;
   bool is_bumper_released_right;
   bool is_button_pressed_b0;
   bool is_button_pressed_and_released_b0;
+  bool is_cliff_left;
+  bool is_cliff_center;
+  bool is_cliff_right;
 };
 
 /*****************************************************************************
@@ -277,6 +305,19 @@ PRT_VALUE* P_GetIsBumperReleasedRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE**
 
 PRT_VALUE* P_GetIsButtonPressedAndReleasedB0_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   bool returnValue = kobuki_manager.get_is_button_pressed_and_released_b0();
+
+PRT_VALUE* P_GetIsCliffLeft_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  bool returnValue = kobuki_manager.get_is_cliff_left();
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+PRT_VALUE* P_GetIsCliffCenter_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  bool returnValue = kobuki_manager.get_is_cliff_center();
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+PRT_VALUE* P_GetIsCliffRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  bool returnValue = kobuki_manager.get_is_cliff_right();
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
 }
 

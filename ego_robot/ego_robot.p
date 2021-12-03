@@ -12,6 +12,9 @@ fun GetRobotPosition(): seq[float];
 fun GetChargerPosition(): seq[float];
 fun GetIsBumperReleasedLeft(): bool;
 fun GetIsBumperReleasedRight(): bool;
+fun GetIsCliffLeft(): bool;
+fun GetIsCliffRight(): bool;
+fun GetIsCliffCenter(): bool;
 fun GetBatteryLevel(): float;
 fun GetIsButtonPressedAndReleasedB0(): bool;
 
@@ -221,13 +224,28 @@ machine MotionPrimitives {
         var temp: bool;
         var isBumperReleasedLeft: bool;
         var isBumperReleasedRight: bool;
+        var isCliffLeft: bool;
+        var isCliffRight: bool;
+        var isCliffCenter: bool;
         isBumperReleasedLeft = GetIsBumperReleasedLeft();
         isBumperReleasedRight = GetIsBumperReleasedRight();
+        isCliffLeft = GetIsCliffLeft();
+        isCliffRight = GetIsCliffRight();
+        isCliffCenter = GetIsCliffCenter();
         if (!isBumperReleasedLeft) {
             return "LeftObstacleAvoidanceController";//Trun Right
         }
         if (!isBumperReleasedRight) {
             return "RightObstacleAvoidanceController";//Trun Left
+        }
+        if (isCliffLeft) {
+            return "LeftCliffAvoidanceController";
+        }
+        if (isCliffRight) {
+            return "RightCliffAvoidanceController";
+        }
+        if (isCliffCenter) {
+            return "CenterCliffAvoidanceController";
         }
         temp = IsInTrajectory(currentLocation.0, currentLocation.1, currentMotion.0, currentMotion.1, trajectoryDeviationThreshold);
         if (temp) {
@@ -266,6 +284,67 @@ machine MotionPrimitives {
         } else if (isBumperReleasedRight) {
             RotateLeft(rotationSpeed);
             rotateCount = rotateCount + 1;
+        } else {
+            MoveBackward(forwardSpeed);
+            rotateCount = 0;
+        }
+    }
+
+    fun LeftCliffAvoidanceController() {
+        var isCliffLeft: bool;
+        var forwardSpeed: float;
+        var rotationSpeed: float;
+        forwardSpeed = 0.2;
+        rotationSpeed = 0.8;
+        isCliffLeft = GetIsCliffLeft();
+        if (!isCliffLeft) {
+            if (rotateCount >= 10) {
+                MoveForward(forwardSpeed);
+            } else {
+                RotateRight(rotationSpeed);
+                rotateCount = rotateCount + 1;
+            }
+        } else {
+            MoveBackward(forwardSpeed);
+            rotateCount = 0;
+        }
+    }
+
+    fun RightCliffAvoidanceController() {
+        var isCliffLeft: bool;
+        var forwardSpeed: float;
+        var rotationSpeed: float;
+        forwardSpeed = 0.2;
+        rotationSpeed = 0.8;
+        isCliffLeft = GetIsCliffRight();
+        if (!isCliffLeft) {
+            if (rotateCount >= 10) {
+                MoveForward(forwardSpeed);
+            } else {
+                RotateLeft(rotationSpeed);
+                rotateCount = rotateCount + 1;
+            }
+        } else {
+            MoveBackward(forwardSpeed);
+            rotateCount = 0;
+        }
+    }
+    
+    fun CenterCliffAvoidanceController() {
+        var isCliffLeft: bool;
+        var forwardSpeed: float;
+        var rotationSpeed: float;
+        forwardSpeed = 0.2;
+        rotationSpeed = 0.8;
+        isCliffLeft = GetIsCliffCenter();
+        if (!isCliffLeft) {
+            if (rotateCount >= 10) {
+                MoveForward(forwardSpeed);
+            } else {
+                /* RotateRight(rotationSpeed); */
+                RotateLeft(rotationSpeed);
+                rotateCount = rotateCount + 1;
+            }
         } else {
             MoveBackward(forwardSpeed);
             rotateCount = 0;
@@ -354,7 +433,7 @@ machine MotionPrimitives {
             controller AdvancedMotionController period 50 ms;
             controller LeftObstacleAvoidanceController period 200 ms;
             controller RightObstacleAvoidanceController period 200 ms;
-            decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20};
+            decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20, LeftCliffAvoidanceController: 20, RightCliffAvoidanceController: 20, CenterCliffAvoidanceController: 20};
         }
         on eMotion do (payload: locationType) {
             motions += (sizeof(motions), payload);
@@ -376,7 +455,7 @@ machine MotionPrimitives {
             controller AdvancedMotionController period 50 ms;
             controller LeftObstacleAvoidanceController period 200 ms;
             controller RightObstacleAvoidanceController period 200 ms;
-            decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20};
+            decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20, LeftCliffAvoidanceController: 20, RightCliffAvoidanceController: 20, CenterCliffAvoidanceController: 20};
         }
         on eMotionX do (payload: locationType) {
             highPriorityMotions += (sizeof(highPriorityMotions), payload);
