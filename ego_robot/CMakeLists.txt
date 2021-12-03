@@ -6,7 +6,7 @@ include_directories(
 )
 add_definitions( -DPRT_PLAT_LINUXUSER )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-variadic-macros -Wno-unused-parameter -Wno-write-strings -Wno-vla -Wno-cast-function-type -Wno-unused-variable ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-variadic-macros -Wno-unused-parameter -Wno-write-strings -Wno-vla -Wno-cast-function-type -Wno-unused-variable -Wno-reorder ")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-variadic-macros -Wno-unused-parameter -Wno-write-strings -Wno-vla -Wno-cast-function-type -Wno-pointer-sign -Wno-unused-variable -Wno-incompatible-pointer-types -Wno-unused-label -Wno-missing-braces ")
 

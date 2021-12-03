@@ -60,9 +60,13 @@ public:
   ) :
     dx(0.0), dth(0.0),
     length(length),
+    is_bumper_released_left(true),
+    is_bumper_released_right(true),
+    is_button_pressed_b0(false),
+    is_button_pressed_and_released_b0(false),
     slot_stream_data(&KobukiManager::processStreamData, *this),
     slot_bumper_event(&KobukiManager::processBumperEvent, *this),
-    is_bumper_released_left(true), is_bumper_released_right(true)
+    slot_button_event(&KobukiManager::processButtonEvent, *this)
   {
     kobuki::Parameters parameters;
     parameters.sigslots_namespace = "/kobuki";
@@ -73,8 +77,7 @@ public:
     kobuki.enable();
     slot_stream_data.connect("/kobuki/stream_data");
     slot_bumper_event.connect("/kobuki/bumper_event");
-
-    kobuki.resetOdometry();
+    slot_button_event.connect("/kobuki/button_event");
   }
 
   ~KobukiManager() {
@@ -116,6 +119,20 @@ public:
         is_bumper_released_left = false;
       } else {
         is_bumper_released_right = false;
+      }
+    }
+  }
+
+  void processButtonEvent(const kobuki::ButtonEvent &event) {
+    if (event.button == kobuki::ButtonEvent::Button0) {
+      if (event.state == kobuki::ButtonEvent::Pressed) {
+        is_button_pressed_b0 = true;
+      } else if (event.state == kobuki::ButtonEvent::Released) {
+        if (is_button_pressed_b0) {
+          batteryLevel = 100.0;
+          is_button_pressed_and_released_b0 = true;
+        }
+        is_button_pressed_b0 = false;
       }
     }
   }
@@ -166,7 +183,6 @@ public:
 
   void stop() {
     kobuki.setBaseControl(0.0, 0.0);
-    batteryLevel -= batteryStep;
   }
 
   bool get_is_bumper_released_left() {
@@ -177,6 +193,14 @@ public:
     return is_bumper_released_right;
   }
 
+  bool get_is_button_pressed_and_released_b0() {
+    if (is_button_pressed_and_released_b0) {
+      is_button_pressed_and_released_b0 = false;
+      return true;
+    }
+    return false;
+  }
+
 private:
   double dx, dth;
   const double length;
@@ -184,8 +208,11 @@ private:
   kobuki::Kobuki kobuki;
   ecl::Slot<> slot_stream_data;
   ecl::Slot<const kobuki::BumperEvent&> slot_bumper_event;
+  ecl::Slot<const kobuki::ButtonEvent&> slot_button_event;
   bool is_bumper_released_left;
   bool is_bumper_released_right;
+  bool is_button_pressed_b0;
+  bool is_button_pressed_and_released_b0;
 };
 
 /*****************************************************************************
@@ -245,6 +272,11 @@ PRT_VALUE* P_GetIsBumperReleasedLeft_IMPL(PRT_MACHINEINST* context, PRT_VALUE***
 
 PRT_VALUE* P_GetIsBumperReleasedRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   bool returnValue = kobuki_manager.get_is_bumper_released_right();
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+PRT_VALUE* P_GetIsButtonPressedAndReleasedB0_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  bool returnValue = kobuki_manager.get_is_button_pressed_and_released_b0();
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
 }
 

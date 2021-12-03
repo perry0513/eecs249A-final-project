@@ -13,28 +13,28 @@ fun GetChargerPosition(): seq[float];
 fun GetIsBumperReleasedLeft(): bool;
 fun GetIsBumperReleasedRight(): bool;
 fun GetBatteryLevel(): float;
+fun GetIsButtonPressedAndReleasedB0(): bool;
 
 type locationType = (float, float);
 
-event eMotionPlan: (machine, locationType, locationType);
-event eMotionPlanX priority 10: (machine, locationType, locationType);
+event eMotionRequest: (machine, locationType, locationType, bool);
+event eMotionRequestX priority 10: (machine, locationType, locationType, bool);
 event eMotion: locationType;
 event eMotionX priority 10: locationType;
 event eBatteryLow priority 10: machine;
 event eBatteryRecovered priority 10: machine;
 event eCurrentLocation priority 10: locationType;
 event eCurrentGoal priority 10: locationType;
-event eLocation: locationType;
 
 machine EgoRobot {
-    var motionPrimitives: machine;
     var motionPlanner: machine;
+    var motionPrimitives: machine;
     var battery: machine;
+    var currentLocation: locationType;
     var goals: seq[locationType];
     var currentGoalIndex: int;
-    var currentLocation: locationType;
-    var chargerLocation: locationType;
     var temp: seq[float];
+    var chargerLocation: locationType;
 
     fun DM(): string {
         if (currentLocation == goals[currentGoalIndex]) {
@@ -53,7 +53,7 @@ machine EgoRobot {
     }
 
     fun SC() {
-        send motionPlanner, eMotionPlan, (motionPrimitives, currentLocation, goals[currentGoalIndex]);
+        send motionPlanner, eMotionRequest, (motionPrimitives, currentLocation, goals[currentGoalIndex], false);
     }
 
     fun handler(payload: locationType) {
@@ -67,16 +67,28 @@ machine EgoRobot {
             currentLocation = (temp[0], temp[1]);
             temp = GetChargerPosition();
             chargerLocation = (temp[0], temp[1]);
-            motionPlanner = new MotionPlanner();
             motionPrimitives = new MotionPrimitives(this, currentLocation, 0.1, 300.0);
+            motionPlanner = new MotionPlanner();
             battery = new Battery(motionPrimitives, motionPlanner, chargerLocation, 50.0, 100.0);
             goals += (sizeof(goals), (0.25, 0.25));
             goals += (sizeof(goals), (-0.25, 0.25));
             goals += (sizeof(goals), (-0.25, -0.25));
             goals += (sizeof(goals), (0.25, -0.25));
             currentGoalIndex = 0;
-            send motionPlanner, eMotionPlan, (motionPrimitives, currentLocation, goals[currentGoalIndex]);
-            goto Run;
+            goto WaitB0Press;
+        }
+    }
+
+    state WaitB0Press {
+        entry {
+            var isButtonB0PressedAndReleased: bool;
+            isButtonB0PressedAndReleased = GetIsButtonPressedAndReleasedB0();
+            if (isButtonB0PressedAndReleased) {
+                send motionPlanner, eMotionRequest, (motionPrimitives, currentLocation, goals[currentGoalIndex], false);
+                goto Run;
+            } else {
+                goto WaitB0Press;
+            }
         }
     }
 
@@ -88,14 +100,15 @@ machine EgoRobot {
             on eCurrentLocation with handler;
         }
     }
-
 }
 
 machine MotionPlanner {
     var destination: machine;
+    var step: float;
+    var destinationOfRequest: machine;
     var currentLocation: locationType;
     var goalLocation: locationType;
-    var step: float;
+    var isHighPriorityMotionRequest: bool;
 
     fun DM(): string {
         if (currentLocation.0 >= -step &&
@@ -108,42 +121,67 @@ machine MotionPlanner {
     }
 
     fun AC() {
-        send destination, eMotion, goalLocation;
-    }
-
-    fun SC() {
-        while (currentLocation.0 != goalLocation.0 ||
-               currentLocation.1 != goalLocation.1) {
-            if (currentLocation.0 > goalLocation.0) {
-                currentLocation.0 = currentLocation.0 - step;
-                if (currentLocation.0 < goalLocation.0) {
-                    currentLocation.0 = goalLocation.0;
-                }
-            } else if (currentLocation.0 < goalLocation.0) {
-                currentLocation.0 = currentLocation.0 + step;
-                if (currentLocation.0 > goalLocation.0) {
-                    currentLocation.0 = goalLocation.0;
-                }
+        var motionPlan: seq[locationType];
+        var index: int;
+        motionPlan += (sizeof(motionPlan), goalLocation);
+        index = 0;
+        while (index < sizeof(motionPlan)) {
+            if (isHighPriorityMotionRequest) {
+                send destinationOfRequest, eMotionX, motionPlan[index];
+            } else {
+                send destinationOfRequest, eMotion, motionPlan[index];
             }
-            if (currentLocation.1 > goalLocation.1) {
-                currentLocation.1 = currentLocation.1 - step;
-                if (currentLocation.1 < goalLocation.1) {
-                    currentLocation.1 = goalLocation.1;
-                }
-            } else if (currentLocation.1 < goalLocation.1) {
-                currentLocation.1 = currentLocation.1 + step;
-                if (currentLocation.1 > goalLocation.1) {
-                    currentLocation.1 = goalLocation.1;
-                }
-            }
-            send destination, eMotion, currentLocation;
+            index = index + 1;
         }
     }
 
-    fun handler(payload: (machine, locationType, locationType)) {
-        destination = payload.0;
+    fun SC() {
+        var waypoint: locationType;
+        var motionPlan: seq[locationType];
+        var index: int;
+        waypoint = currentLocation;
+        while (waypoint.0 != goalLocation.0 ||
+               waypoint.1 != goalLocation.1) {
+            if (waypoint.0 > goalLocation.0) {
+                waypoint.0 = waypoint.0 - step;
+                if (waypoint.0 < goalLocation.0) {
+                    waypoint.0 = goalLocation.0;
+                }
+            } else if (waypoint.0 < goalLocation.0) {
+                waypoint.0 = waypoint.0 + step;
+                if (waypoint.0 > goalLocation.0) {
+                    waypoint.0 = goalLocation.0;
+                }
+            }
+            if (waypoint.1 > goalLocation.1) {
+                waypoint.1 = waypoint.1 - step;
+                if (waypoint.1 < goalLocation.1) {
+                    waypoint.1 = goalLocation.1;
+                }
+            } else if (waypoint.1 < goalLocation.1) {
+                waypoint.1 = waypoint.1 + step;
+                if (waypoint.1 > goalLocation.1) {
+                    waypoint.1 = goalLocation.1;
+                }
+            }
+            motionPlan += (sizeof(motionPlan), waypoint);
+        }
+        index = 0;
+        while (index < sizeof(motionPlan)) {
+            if (isHighPriorityMotionRequest) {
+                send destinationOfRequest, eMotionX, motionPlan[index];
+            } else {
+                send destinationOfRequest, eMotion, motionPlan[index];
+            }
+            index = index + 1;
+        }
+    }
+
+    fun handler(payload: (machine, locationType, locationType, bool)) {
+        destinationOfRequest = payload.0;
         currentLocation = payload.1;
         goalLocation = payload.2;
+        isHighPriorityMotionRequest = payload.3;
     }
 
     start state Init {
@@ -158,7 +196,7 @@ machine MotionPlanner {
             controller AC;
             controller SC;
             decisionmodule DM @ {AC: 1, SC: 1};
-            on eMotionPlan, eMotionPlanX with handler;
+            on eMotionRequest, eMotionRequestX with handler;
         }
     }
 }
@@ -177,6 +215,7 @@ machine MotionPrimitives {
     var safeMotionControllerCount: int;
     var robot: machine;
     var rotateCount: int;
+    var isBatteryLow: bool;
 
     fun DM(): string {
         var temp: bool;
@@ -249,7 +288,7 @@ machine MotionPrimitives {
                 send robot, eCurrentLocation, currentLocation;
             }
             safeMotionControllerCount = safeMotionControllerCount + 1;
-        } else if (currentMotionIndex < sizeof(motions)) {
+        } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
             currentMotion = motions[currentMotionIndex];
             if (!RotateTowardsLocation(currentMotion.0, currentMotion.1, rotationSpeed)) {
                 MoveForward(forwardSpeed);
@@ -280,7 +319,7 @@ machine MotionPrimitives {
                 send robot, eCurrentLocation, currentLocation;
             }
             advancedMotionControllerCount = advancedMotionControllerCount + 1;
-        } else if (currentMotionIndex < sizeof(motions)) {
+        } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
             currentMotion = motions[currentMotionIndex];
             RandomController(forwardSpeed, rotationSpeed);
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
@@ -304,6 +343,7 @@ machine MotionPrimitives {
             advancedMotionControllerCount = 0;
             safeMotionControllerCount = 0;
             rotateCount = 0;
+            isBatteryLow = false;
             goto Run;
         }
     }
@@ -325,6 +365,7 @@ machine MotionPrimitives {
         on eBatteryLow goto LowBatteryRun with (payload: machine) {
             send payload, eCurrentLocation, currentLocation;
             lastGoal = currentMotion;
+            isBatteryLow = true;
         }
     }
 
@@ -342,28 +383,31 @@ machine MotionPrimitives {
         }
         on eBatteryRecovered goto Run with (payload: machine) {
             send payload, eCurrentGoal, lastGoal;
+            isBatteryLow = false;
         }
     }
 }
+
 
 machine Battery {
     var destination: machine;
     var motionPlanner: machine;
     var chargerLocation: locationType;
+    var previousBatteryLevel: float;
     var currentBatteryLevel: float;
     var batteryLevelLowerBound: float;
     var batteryLevelUpperBound: float;
     var isBatteryLow: bool;
-    var batteryLevel: float;
-    var previousBatteryLevel: float;
 
     fun DM(): string {
-        previousBatteryLevel = batteryLevel;
-        batteryLevel = GetBatteryLevel();
-        if (!isBatteryLow && batteryLevel < batteryLevelLowerBound && previousBatteryLevel >= batteryLevelLowerBound) {
+        var isButtonB0PressedAndReleased: bool;
+        isButtonB0PressedAndReleased = GetIsButtonPressedAndReleasedB0();
+        previousBatteryLevel = currentBatteryLevel;
+        currentBatteryLevel = GetBatteryLevel();
+        if (!isBatteryLow && currentBatteryLevel < batteryLevelLowerBound && previousBatteryLevel >= batteryLevelLowerBound) {
             return "HandleLowBattery";
         }
-        if (isBatteryLow && batteryLevel > batteryLevelUpperBound && previousBatteryLevel <= batteryLevelLowerBound) {
+        if (isBatteryLow && isButtonB0PressedAndReleased) {
             return "NotifyRecovery";
         }
         return "Idle";
@@ -404,15 +448,11 @@ machine Battery {
             decisionmodule DM @ {Idle: 1, HandleLowBattery: 1, NotifyRecovery: 1};
         }
         on eCurrentLocation do (payload: locationType) {
-            send motionPlanner, eMotionPlanX, (this, payload, chargerLocation);
-        }
-        on eMotion do (payload: locationType) {
-            send destination, eMotionX, payload;
+            send motionPlanner, eMotionRequestX, (destination, payload, chargerLocation, true);
         }
         on eCurrentGoal do (payload: locationType) {
-            send motionPlanner, eMotionPlanX, (this, chargerLocation, payload);
+            send motionPlanner, eMotionRequestX, (destination, chargerLocation, payload, true);
         }
     }
 }
-
 

@@ -7,15 +7,14 @@
 extern "C" {
 #endif
     
-    extern PRT_EVENTDECL P_EVENT_eMotionPlan;
-    extern PRT_EVENTDECL P_EVENT_eMotionPlanX;
+    extern PRT_EVENTDECL P_EVENT_eMotionRequest;
+    extern PRT_EVENTDECL P_EVENT_eMotionRequestX;
     extern PRT_EVENTDECL P_EVENT_eMotion;
     extern PRT_EVENTDECL P_EVENT_eMotionX;
     extern PRT_EVENTDECL P_EVENT_eBatteryLow;
     extern PRT_EVENTDECL P_EVENT_eBatteryRecovered;
     extern PRT_EVENTDECL P_EVENT_eCurrentLocation;
     extern PRT_EVENTDECL P_EVENT_eCurrentGoal;
-    extern PRT_EVENTDECL P_EVENT_eLocation;
     extern PRT_INTERFACEDECL P_I_EgoRobot;
     extern PRT_INTERFACEDECL P_I_MotionPlanner;
     extern PRT_INTERFACEDECL P_I_MotionPrimitives;
