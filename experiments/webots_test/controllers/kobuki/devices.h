@@ -5,6 +5,8 @@
 #include <webots/utils/AnsiCodes.hpp>
 #include <webots/Lidar.hpp>
 #include <webots/Gyro.hpp>
+#include <webots/GPS.hpp>
+#include <webots/InertialUnit.hpp>
 #include <webots/TouchSensor.hpp>
 
 #include <iostream>
@@ -45,6 +47,8 @@ public:
 
     int timeStep;
     Gyro * gyro;
+    GPS * gps;
+    InertialUnit * imu;
     Lidar * lidars[3];
     TouchSensor * bumpSensors[3];
     Motor * motors[2];
@@ -53,6 +57,8 @@ public:
     void readGyro(GyroMeasurement_t& gm);
     void readBump(BumpMeasurement_t& bm);
     void readLidarImage(LidarMeasurement_t& lm);
+    void getPose(GyroMeasurement_t& pose);
+    void getOrientation(GyroMeasurement_t& orient);
     int getLidarHorizontalResolution();
     float getBatteryLevel();
     void chargeBattery();

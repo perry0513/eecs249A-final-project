@@ -16,12 +16,17 @@
 #
 # You may add some variable definitions hereafter to customize the build process
 # See documentation in $(WEBOTS_HOME_PATH)/resources/Makefile.include
-
 CXX_SOURCES = devices.cpp kobuki.cpp
 
 # Do not modify the following: this includes Webots global Makefile.include
 null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
+
+INCLUDE = -I/usr/local/Cellar/ompl/1.5.2/include/ompl-1.5 -I/usr/local/include -I/usr/local/Cellar/ode/0.16.2/include -I/usr/local/Cellar/eigen/3.4.0_1/include/eigen3
+LIBRARIES = -L/usr/local/Cellar/ompl/1.5.2/lib -L/usr/local/Cellar/flann/1.9.1_10/lib -L/usr/local/Cellar/ode/0.16.2/lib -lompl -lboost_serialization-mt -lboost_filesystem-mt -lboost_system-mt -lode
+CFLAGS = -std=c++14
+
 include $(WEBOTS_HOME_PATH)/resources/Makefile.include
+
 

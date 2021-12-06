@@ -20,6 +20,12 @@ void Devices::init(int ts) {
     lidars[1] = getLidar("cliff_sensor_right");
     lidars[2] = getLidar("cliff_sensor_front");
 
+    gps = getGPS("gps");
+    gps->enable(timeStep);
+
+    imu = getInertialUnit("imu");
+    imu->enable(timeStep);
+
     for (int i = 0; i < 3; ++i)
     lidars[i]->enable(timeStep);
 
@@ -33,6 +39,16 @@ void Devices::init(int ts) {
     start = chrono::steady_clock::now();
 }
 
+
+void Devices::getPose(GyroMeasurement_t& pose) {
+    const double * vals = gps->getValues();
+    pose.x = vals[0]; pose.y = vals[1]; pose.z = vals[2];
+}
+
+void Devices::getOrientation(GyroMeasurement_t& orient) {
+    const double * vals = imu->getRollPitchYaw();
+    orient.x = vals[0]; orient.y = vals[1]; orient.z = vals[2];
+}
 
 void Devices::readGyro(GyroMeasurement_t& gm) {
     const double * vals = gyro->getValues();
