@@ -10,6 +10,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-variadic-macros -Wno-unused-paramet
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-variadic-macros -Wno-unused-parameter -Wno-write-strings -Wno-vla -Wno-cast-function-type -Wno-pointer-sign -Wno-unused-variable -Wno-incompatible-pointer-types -Wno-unused-label -Wno-missing-braces ")
 
+find_package(ompl)
 
 ###############################################################################
 # Macro
@@ -42,6 +43,8 @@ macro(kobuki_core_add_demo name)
     /home/ubuntu/P-RTA/P/Bld/Drops/Prt/lib/libPrt_static.a
     /home/ubuntu/P-RTA/P/Ext/libhandler/out/gcc-arm-linux-gnueabihf/debug/libhandler.a
     ${CMAKE_THREAD_LIBS_INIT}
+    ${OMPL_LIBRARIES}
+    ${OMPLAPP_LIBRARIES}
   )
   set_target_properties(${target_name} PROPERTIES OUTPUT_NAME demo_${name})
   install(

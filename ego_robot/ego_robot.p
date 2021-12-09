@@ -17,6 +17,8 @@ fun GetIsCliffRight(): bool;
 fun GetIsCliffCenter(): bool;
 fun GetBatteryLevel(): float;
 fun GetIsButtonPressedAndReleasedB0(): bool;
+fun StepPID(x: float, z:float): int;
+fun GetOMPLMotionPlan(currentLocationX: float, currentLocationZ: float, goalLocationX: float, goalLocationZ: float): seq[(float, float)];
 
 type locationType = (float, float);
 
@@ -114,10 +116,7 @@ machine MotionPlanner {
     var isHighPriorityMotionRequest: bool;
 
     fun DM(): string {
-        if (currentLocation.0 >= -step &&
-            currentLocation.0 <= step &&
-            currentLocation.1 >= -step &&
-            currentLocation.1 <= step) {
+        if (true) {
             return "AC";
         }
         return "SC";
@@ -126,7 +125,7 @@ machine MotionPlanner {
     fun AC() {
         var motionPlan: seq[locationType];
         var index: int;
-        motionPlan += (sizeof(motionPlan), goalLocation);
+        motionPlan = GetOMPLMotionPlan(currentLocation.0, currentLocation.1, goalLocation.0, goalLocation.1);
         index = 0;
         while (index < sizeof(motionPlan)) {
             if (isHighPriorityMotionRequest) {
@@ -232,6 +231,7 @@ machine MotionPrimitives {
         isCliffLeft = GetIsCliffLeft();
         isCliffRight = GetIsCliffRight();
         isCliffCenter = GetIsCliffCenter();
+        return "AdvancedMotionController";
         if (!isBumperReleasedLeft) {
             return "LeftObstacleAvoidanceController";//Trun Right
         }
@@ -384,14 +384,13 @@ machine MotionPrimitives {
     }
 
     fun AdvancedMotionController() {
-        SafeMotionController();
-        /*var forwardSpeed: float;
+        var forwardSpeed: float;
         var rotationSpeed: float;
-        forwardSpeed = 0.22;
+        forwardSpeed = 1.0;
         rotationSpeed = 1.0;
         if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
             currentMotion = highPriorityMotions[currentHighPriorityMotionsIndex];
-            RandomController(forwardSpeed, rotationSpeed);
+            StepPID(currentMotion.0, currentMotion.1);
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
                 currentLocation = currentMotion;
                 currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
@@ -400,7 +399,7 @@ machine MotionPrimitives {
             advancedMotionControllerCount = advancedMotionControllerCount + 1;
         } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
             currentMotion = motions[currentMotionIndex];
-            RandomController(forwardSpeed, rotationSpeed);
+            StepPID(currentMotion.0, currentMotion.1);
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
                 currentLocation = currentMotion;
                 currentMotionIndex = currentMotionIndex + 1;
@@ -409,7 +408,7 @@ machine MotionPrimitives {
             advancedMotionControllerCount = advancedMotionControllerCount + 1;
         } else {
             Stay();
-        }*/
+        }
     }
 
     start state Init {
@@ -430,13 +429,19 @@ machine MotionPrimitives {
     state Run {
         rtamodule {
             controller SafeMotionController period 50 ms;
-            controller AdvancedMotionController period 50 ms;
+            controller AdvancedMotionController period 25 ms;
             controller LeftObstacleAvoidanceController period 200 ms;
             controller RightObstacleAvoidanceController period 200 ms;
             controller LeftCliffAvoidanceController period 200 ms;
             controller RightCliffAvoidanceController period 200 ms;
             controller CenterCliffAvoidanceController period 200 ms;
-            decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20, LeftCliffAvoidanceController: 20, RightCliffAvoidanceController: 20, CenterCliffAvoidanceController: 20};
+            decisionmodule DM @ {SafeMotionController: 1,
+                                 AdvancedMotionController: 1,
+                                 LeftObstacleAvoidanceController: 20,
+                                 RightObstacleAvoidanceController: 20,
+                                 LeftCliffAvoidanceController: 20,
+                                 RightCliffAvoidanceController: 20,
+                                 CenterCliffAvoidanceController: 20};
         }
         on eMotion do (payload: locationType) {
             motions += (sizeof(motions), payload);
@@ -455,13 +460,19 @@ machine MotionPrimitives {
         defer eMotion;
         rtamodule {
             controller SafeMotionController period 50 ms;
-            controller AdvancedMotionController period 50 ms;
+            controller AdvancedMotionController period 25 ms;
             controller LeftObstacleAvoidanceController period 200 ms;
             controller RightObstacleAvoidanceController period 200 ms;
             controller LeftCliffAvoidanceController period 200 ms;
             controller RightCliffAvoidanceController period 200 ms;
             controller CenterCliffAvoidanceController period 200 ms;
-            decisionmodule DM @ {SafeMotionController: 1, AdvancedMotionController: 1, LeftObstacleAvoidanceController: 20, RightObstacleAvoidanceController: 20, LeftCliffAvoidanceController: 20, RightCliffAvoidanceController: 20, CenterCliffAvoidanceController: 20};
+            decisionmodule DM @ {SafeMotionController: 1,
+                                 AdvancedMotionController: 1,
+                                 LeftObstacleAvoidanceController: 20,
+                                 RightObstacleAvoidanceController: 20,
+                                 LeftCliffAvoidanceController: 20,
+                                 RightCliffAvoidanceController: 20,
+                                 CenterCliffAvoidanceController: 20};
         }
         on eMotionX do (payload: locationType) {
             highPriorityMotions += (sizeof(highPriorityMotions), payload);
