@@ -3514,7 +3514,7 @@ PRT_VALUE* P_DM_IMPL_2(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
     
     PRT_VALUE** P_LVALUE_229 = &(PTMP_tmp37);
     PrtFreeValue(*P_LVALUE_229);
-    *P_LVALUE_229 = PrtCloneValue((&P_LIT_INT32_16));
+    *P_LVALUE_229 = PrtCloneValue((&P_LIT_INT32_15));
     
     _P_GEN_funargs[0] = &(PTMP_tmp36_1);
     _P_GEN_funargs[1] = &(PTMP_tmp37);
