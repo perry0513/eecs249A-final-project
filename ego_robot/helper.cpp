@@ -46,8 +46,8 @@ namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
 // OMPL constants
-static const double GRIDLOW = -0.3;
-static const double GRIDHIGH = 0.3;
+static const double GRIDLOW = -1.25;
+static const double GRIDHIGH = 1.25;
 
 double x_position = 0.0;
 double y_position = 0.0;
@@ -220,10 +220,10 @@ public:
     } else if (positionalSpeed > 1.0) {
       positionalSpeed = 1.0;
     }
-    if (rotationalSpeed < -1.0) {
-      rotationalSpeed = -1.0;
-    } else if (rotationalSpeed > 1.0) {
-      rotationalSpeed = 1.0;
+    if (rotationalSpeed < -2.0) {
+      rotationalSpeed = -2.0;
+    } else if (rotationalSpeed > 2.0) {
+      rotationalSpeed = 2.0;
     }
     //std::cout << "AC" << std::endl;
     kobuki.setBaseControl(positionalSpeed, rotationalSpeed);
@@ -238,8 +238,8 @@ public:
     } else {
       kobuki.setBaseControl(speed, 0.0);
     }
-    std::cout << "SC Move moveForward" << std::endl;
-    batteryLevel -= batteryStep;
+    //std::cout << "SC Move moveForward" << std::endl;
+    //batteryLevel -= batteryStep;
   }
 
   void moveBackward(float speed) {
@@ -250,7 +250,7 @@ public:
     } else {
       kobuki.setBaseControl(-speed, 0.0);
     }
-    batteryLevel -= batteryStep;
+    //batteryLevel -= batteryStep;
   }
 
   void turnLeft(float speed) {
@@ -261,8 +261,8 @@ public:
     } else {
       kobuki.setBaseControl(0.0, speed);
     }
-    std::cout << "SC Move turnLeft" << std::endl;
-    batteryLevel -= batteryStep;
+    //std::cout << "SC Move turnLeft" << std::endl;
+    //batteryLevel -= batteryStep;
   }
 
   void turnRight(float speed) {
@@ -273,8 +273,8 @@ public:
     } else {
       kobuki.setBaseControl(0.0, -speed);
     }
-    std::cout << "SC Move turnRight" << std::endl;
-    batteryLevel -= batteryStep;
+    //std::cout << "SC Move turnRight" << std::endl;
+    //batteryLevel -= batteryStep;
   }
 
   void stop() {
@@ -456,6 +456,8 @@ PRT_VALUE* P_CheckIfReached_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs)
     x_start = x_position;
     y_start = y_position;
     z_start = z_position;
+    position_integral = 0.0;
+    angle_integral = 0.0;
   }
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
 }
@@ -559,7 +561,8 @@ PRT_VALUE* P_StepPID_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
     
     //std::cout << "Current orientation:" << orientation << std::endl;
     
-    //std::cout << "Current position:" << nextLocationX << " " << nextLocationZ << std::endl;
+    std::cout << "Goal position:" << nextLocationX << " " << nextLocationZ << std::endl;
+    std::cout << "Current position:" << x_position << " " << z_position << std::endl;
     
     float x_diff = nextLocationX - x_position;
     float z_diff = nextLocationZ - z_position;
@@ -594,10 +597,9 @@ PRT_VALUE* P_StepPID_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
     float pos_out = BASE_SPEED + K_ap * position_difference + K_av * position_velocity + K_ai * position_integral;
     float angl_out = K_tp * angle_difference + K_tv * angle_velocity + K_ti * angle_integral;
 
-    //std::cout << "pos_out = " << pos_out << std::endl;
-    //std::cout << "angl_out = " << angl_out << std::endl;
-    //std::cout << "BASE_SPEED: " << BASE_SPEED << " | position_difference: " << position_difference << " | position_velocity: " << position_velocity << " | position_integral: " << position_integral << std::endl;
-    //std::cout << "SPEED_SCALE: " << SPEED_SCALE << " | angle_difference: " << angle_difference << " | angle_velocity: " << angle_velocity << " | angle_integral: " << angle_integral << std::endl;
+
+    //std::cout << "BASE_SPEED: " << BASE_SPEED << " | position_difference: " << position_difference << " | position_velocity: " << position_velocity << " | position_integral: " << position_integral << " | pos_out = " << pos_out << std::endl;
+    //std::cout << "SPEED_SCALE: " << SPEED_SCALE << " | angle_difference: " << angle_difference << " | angle_velocity: " << angle_velocity << " | angle_integral: " << angle_integral << " | angl_out = " << angl_out << std::endl;
 
     kobuki_manager.setBaseControl(pos_out * SPEED_SCALE, angl_out * SPEED_SCALE);
 
