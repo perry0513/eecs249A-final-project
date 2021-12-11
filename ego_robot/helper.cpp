@@ -16,6 +16,7 @@
 
 #include "helper.hpp"
 
+#include <limits>
 #include <string>
 
 #include <csignal>
@@ -39,8 +40,18 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/config.h>
+#include <ompl/base/objectives/PathLengthOptimizationObjective.h>
+#include <ompl/base/Planner.h>
+#include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/base/OptimizationObjective.h>
+#include <ompl/base/objectives/StateCostIntegralObjective.h>
+#include <ompl/base/Cost.h>
 
 #include<memory>
+
+#include<utility>
+
+#define R 0.15
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
@@ -76,6 +87,8 @@ std::shared_ptr<ob::SE2StateSpace> space(std::make_shared<ob::SE2StateSpace>());
 og::SimpleSetup ss(space);
 og::PathGeometric waypoints(ss.getSpaceInformation());
 
+std::vector<std::pair<float, float> > avoidLocations;
+
 float K_ap;
 float K_av;
 float K_ai;
@@ -104,7 +117,7 @@ public:
     slot_bumper_event(&KobukiManager::processBumperEvent, *this),
     slot_button_event(&KobukiManager::processButtonEvent, *this),
     slot_cliff_event(&KobukiManager::processCliffEvent, *this),
-    is_bumper_released_left(true), is_bumper_released_right(true),
+    is_bumper_released_left(true), is_bumper_released_center(true), is_bumper_released_right(true),
     is_cliff_left(false), is_cliff_center(false), is_cliff_right(false)
   {
     kobuki::Parameters parameters;
@@ -164,14 +177,18 @@ public:
   }
 
   void processBumperEvent(const kobuki::BumperEvent &event) {
-    if (event.state == kobuki::BumperEvent::Released ) {
-      is_bumper_released_left = true;
-      is_bumper_released_right = true;
+    if (event.state == kobuki::BumperEvent::Released) {
+      switch (event.bumper) {
+        case kobuki::BumperEvent::Left  : is_bumper_released_left   = true; break;
+        case kobuki::BumperEvent::Center: is_bumper_released_center = true; break;
+        case kobuki::BumperEvent::Right : is_bumper_released_right  = true; break;
+      }
     } else if (event.state == kobuki::BumperEvent::Pressed) {
-      if (event.bumper == kobuki::BumperEvent::Left) {
-        is_bumper_released_left = false;
-      } else {
-        is_bumper_released_right = false;
+      kobuki.setBaseControl(-1.0, 0);
+      switch (event.bumper) {
+        case kobuki::BumperEvent::Left  : is_bumper_released_left   = false; break;
+        case kobuki::BumperEvent::Center: is_bumper_released_center = false; break;
+        case kobuki::BumperEvent::Right : is_bumper_released_right  = false; break;
       }
     }
   }
@@ -285,6 +302,10 @@ public:
     return is_bumper_released_left;
   }
 
+  bool get_is_bumper_released_center() {
+    return is_bumper_released_center;
+  }
+
   bool get_is_bumper_released_right() {
     return is_bumper_released_right;
   }
@@ -300,6 +321,27 @@ public:
   bool get_is_cliff_right() {
     return is_cliff_right;
   }
+
+  // color:
+  // 0 -> black
+  // 1 -> red
+  // 2 -> green
+  // 3 -> orange
+  void setLed(int led_num, int color) { 
+    kobuki::LedNumber LED;
+    kobuki::LedColour COLOR;
+    switch (led_num) {
+      case 0: LED = kobuki::LedNumber::Led1; break;
+      case 1: LED = kobuki::LedNumber::Led2; break;
+    }
+    switch (color) {
+      case 0: COLOR = kobuki::LedColour::Black;  break;
+      case 1: COLOR = kobuki::LedColour::Red;    break;
+      case 2: COLOR = kobuki::LedColour::Green;  break;
+      case 3: COLOR = kobuki::LedColour::Orange; break;
+    }
+    kobuki.setLed(LED, COLOR);
+  }
   
 private:
   double dx, dth;
@@ -311,6 +353,7 @@ private:
   ecl::Slot<const kobuki::ButtonEvent&> slot_button_event;
   ecl::Slot<const kobuki::CliffEvent&> slot_cliff_event;
   bool is_bumper_released_left;
+  bool is_bumper_released_center;
   bool is_bumper_released_right;
   bool is_button_pressed_b0;
   bool is_button_pressed_and_released_b0;
@@ -323,25 +366,29 @@ private:
 ** Signal Handler
 *****************************************************************************/
 
-bool isStateValid(const ob::State *state) {
-    //  cast the abstract state type to the type we expect
-    const auto *se2state = state->as<ob::SE2StateSpace::StateType>();
+float getDistance(const ob::State *state, float tempX, float tempY) {
+  const auto *se2state = state->as<ob::SE2StateSpace::StateType>();
     
-    // extract the first component of the state and cast it to what we expect
-    const auto *pos = se2state->as<ob::RealVectorStateSpace::StateType>(0);
+  // extract the first component of the state and cast it to what we expect
+  const auto *pos = se2state->as<ob::RealVectorStateSpace::StateType>(0);
 
-    // extract the second component of the state and cast it to what we expect
-    /* const auto *rot = se2state->as<ob::SO2StateSpace::StateType>(1); */
+  // extract the second component of the state and cast it to what we expect
+  /* const auto *rot = se2state->as<ob::SO2StateSpace::StateType>(1); */
 
-    // check validity of state defined by pos & rot
-    float x = pos->values[0];
-    float y = pos->values[1];
+  // check validity of state defined by pos & rot
+  float x = pos->values[0];
+  float y = pos->values[1];
 
-    if (sqrt(pow(x-0.25,2) + pow(y-0,2)) < 0.1) {
-      return false;
-    }
-    if (sqrt(pow(x+0.25,2) + pow(y-0,2)) < 0.1) {
-      return false;
+  return sqrt(pow(x - tempX, 2) + pow(y - tempY, 2));
+
+}
+
+bool isStateValid(const ob::State *state) {
+
+    for (unsigned int i = 0; i < avoidLocations.size(); i++) {
+      if (getDistance(state, avoidLocations[i].first, avoidLocations[i].second) < R) {
+        return false;
+      }
     }
     return true;
 }
@@ -375,8 +422,9 @@ PRT_VALUE* P_Init_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 }
 
 PRT_VALUE* P_MoveForward_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
-  float speed = PrtPrimGetFloat(*argRefs[0]);
-  kobuki_manager.moveForward(speed);
+  float positionalSpeed = PrtPrimGetFloat(*argRefs[0]);
+  float rotationalSpeed = PrtPrimGetFloat(*argRefs[1]);
+  kobuki_manager.setBaseControl(positionalSpeed, rotationalSpeed);
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
@@ -400,6 +448,11 @@ PRT_VALUE* P_RotateRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
 PRT_VALUE* P_GetIsBumperReleasedLeft_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   bool returnValue = kobuki_manager.get_is_bumper_released_left();
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+PRT_VALUE* P_GetIsBumperReleasedCenter_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  bool returnValue = kobuki_manager.get_is_bumper_released_center();
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
 }
 
@@ -493,6 +546,24 @@ PRT_VALUE* P_Stay_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
+PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  // Compute the avoidLocation
+  float x, z;
+  float angle;
+  if (!kobuki_manager.get_is_bumper_released_left()) {
+    angle = orientation + M_PI / 4;
+  } else if (!kobuki_manager.get_is_bumper_released_right()) {
+    angle = orientation - M_PI / 4;
+  } else {
+    angle = orientation;
+  }
+  x = x_position + cos(angle) * R;
+  z = z_position + sin(angle) * R;
+  avoidLocations.push_back(std::make_pair(x, z));
+  std::cout << "Avoid: " << x << ", " << z << std::endl;
+  return PrtMkIntValue((PRT_UINT32)1);
+}
+
 PRT_VALUE* P_GetBatteryLevel_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   return PrtMkFloatValue((PRT_FLOAT)batteryLevel);
 }
@@ -561,8 +632,8 @@ PRT_VALUE* P_StepPID_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
     
     //std::cout << "Current orientation:" << orientation << std::endl;
     
-    std::cout << "Goal position:" << nextLocationX << " " << nextLocationZ << std::endl;
-    std::cout << "Current position:" << x_position << " " << z_position << std::endl;
+    //std::cout << "Goal position:" << nextLocationX << " " << nextLocationZ << std::endl;
+    //std::cout << "Current position:" << x_position << " " << z_position << std::endl;
     
     float x_diff = nextLocationX - x_position;
     float z_diff = nextLocationZ - z_position;
@@ -608,7 +679,12 @@ PRT_VALUE* P_StepPID_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
     return PrtMkIntValue((PRT_UINT32)1);
 }
 
-PRT_VALUE* P_GetOMPLMotionPlan_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr& si)
+{
+    return ob::OptimizationObjectivePtr(new ob::PathLengthOptimizationObjective(si));
+}
+
+PRT_VALUE* P_GetOMPLMotionPlanAC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
     float currentLocationX = PrtPrimGetFloat(*argRefs[0]);
     float currentLocationZ = PrtPrimGetFloat(*argRefs[1]);
@@ -627,6 +703,101 @@ PRT_VALUE* P_GetOMPLMotionPlan_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRe
   
     // set the start and goal states
     ss.setStartAndGoalStates(start, goal);
+    ss.setOptimizationObjective(getPathLengthObjective(ss.getSpaceInformation()));
+    ob::PlannerPtr optimizingPlanner(new og::RRTstar(ss.getSpaceInformation()));
+    ss.setPlanner(optimizingPlanner);
+    //std::cout << "Planning towards: " << goalLocation << std::endl;
+
+    // this call is optional, but we put it in to get more output information
+    /* ss.setup(); */
+    /* ss.print(); */
+  
+    // attempt to solve the problem within one second of planning time
+    ob::PlannerStatus solved = ss.solve(1.0);
+
+    if (solved) {
+        std::cout << "Found solution:" << std::endl;
+        // print the path to screen
+        ss.simplifySolution();
+        ss.getSolutionPath().print(std::cout);
+        waypoints = ss.getSolutionPath();
+        std::vector<ob::State*> waypointsVector = waypoints.getStates();
+        PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+        PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
+        value = PrtMkDefaultValue(seqType);
+        for (unsigned int i = 0; i < waypointsVector.size(); i++) {
+          PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
+          PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+          value2->discriminator = PRT_VALUE_KIND_TUPLE;
+          value2->valueUnion.tuple = tupPtr;            
+          tupPtr->size = 2;
+          tupPtr->values = (PRT_VALUE**)PrtCalloc(2, sizeof(PRT_VALUE));
+          tupPtr->values[0] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getX());
+          tupPtr->values[1] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getY());
+          PrtSeqInsert(value, PrtMkIntValue(i), value2);
+        }
+        ss.clear();
+        return value;
+    }
+    ss.clear();
+    std::cout << "No solution found" << std::endl;
+    return NULL;
+ }
+
+PRT_VALUE* P_SetLed_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+    int led_num = PrtPrimGetInt(*argRefs[0]);
+    int led_color = PrtPrimGetInt(*argRefs[1]);
+    kobuki_manager.setLed(led_num, led_color);
+    return PrtMkIntValue((PRT_UINT32)1);
+}
+
+class ClearanceObjective : public ob::StateCostIntegralObjective {
+public:
+    ClearanceObjective(const ob::SpaceInformationPtr& si) :
+        ob::StateCostIntegralObjective(si, true)
+    {
+    }
+ 
+    ob::Cost stateCost(const ob::State* state) const
+    {
+      float minDistance = std::numeric_limits<float>::max();
+      for (unsigned int i = 0; i < avoidLocations.size(); i++) {
+        minDistance = std::min(minDistance, getDistance(state, avoidLocations[i].first, avoidLocations[i].second));
+      }
+      return ob::Cost(1 / minDistance);
+    }
+};
+
+ob::OptimizationObjectivePtr getBalancedObjective(const ob::SpaceInformationPtr& si)
+{
+    ob::OptimizationObjectivePtr lengthObj(new ob::PathLengthOptimizationObjective(si));
+    ob::OptimizationObjectivePtr clearObj(new ClearanceObjective(si));
+ 
+    return 10.0*lengthObj + clearObj;
+}
+
+PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+
+    float currentLocationX = PrtPrimGetFloat(*argRefs[0]);
+    float currentLocationZ = PrtPrimGetFloat(*argRefs[1]);
+    float goalLocationX = PrtPrimGetFloat(*argRefs[2]);
+    float goalLocationZ = PrtPrimGetFloat(*argRefs[3]);
+
+    // set start state
+    ob::ScopedState<> start(space);
+    start->as<ob::SE2StateSpace::StateType>()->setX(currentLocationX);
+    start->as<ob::SE2StateSpace::StateType>()->setY(currentLocationZ);
+  
+    // set goal state
+    ob::ScopedState<> goal(space);
+    goal->as<ob::SE2StateSpace::StateType>()->setX(goalLocationX);
+    goal->as<ob::SE2StateSpace::StateType>()->setY(goalLocationZ);
+  
+    // set the start and goal states
+    ss.setStartAndGoalStates(start, goal);
+    ss.setOptimizationObjective(getBalancedObjective(ss.getSpaceInformation()));
+    ob::PlannerPtr optimizingPlanner(new og::RRTstar(ss.getSpaceInformation()));
+    ss.setPlanner(optimizingPlanner);
     //std::cout << "Planning towards: " << goalLocation << std::endl;
 
     // this call is optional, but we put it in to get more output information

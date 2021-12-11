@@ -1,7 +1,7 @@
 fun Init(): int;
 fun CheckIfReached(x: float, z:float, speed:float): bool;
 fun RotateTowardsLocation(x: float, z:float, speed:float): bool;
-fun MoveForward(speed: float): int;
+fun MoveForward(positionalSpeed: float, rotationalSpeed: float): int;
 fun MoveBackward(speed: float): int;
 fun RotateLeft(speed: float): int;
 fun RotateRight(speed: float): int;
@@ -11,6 +11,7 @@ fun RandomController(forwardSpeed: float, rotationSpeed: float): int;
 fun GetRobotPosition(): seq[float];
 fun GetChargerPosition(): seq[float];
 fun GetIsBumperReleasedLeft(): bool;
+fun GetIsBumperReleasedCenter(): bool;
 fun GetIsBumperReleasedRight(): bool;
 fun GetIsCliffLeft(): bool;
 fun GetIsCliffRight(): bool;
@@ -18,7 +19,10 @@ fun GetIsCliffCenter(): bool;
 fun GetBatteryLevel(): float;
 fun GetIsButtonPressedAndReleasedB0(): bool;
 fun StepPID(x: float, z:float): int;
-fun GetOMPLMotionPlan(currentLocationX: float, currentLocationZ: float, goalLocationX: float, goalLocationZ: float): seq[(float, float)];
+fun GetOMPLMotionPlanAC(currentLocationX: float, currentLocationZ: float, goalLocationX: float, goalLocationZ: float): seq[(float, float)];
+fun GetOMPLMotionPlanSC(currentLocationX: float, currentLocationZ: float, goalLocationX: float, goalLocationZ: float): seq[(float, float)];
+fun RegisterAvoidLocation(): int;
+fun SetLed(led_num: int, led_color: int): int;
 
 type locationType = (float, float);
 
@@ -30,7 +34,6 @@ event eBatteryLow priority 10: machine;
 event eBatteryRecovered priority 10: machine;
 event eCurrentLocation priority 10: locationType;
 event eCurrentGoal priority 10: locationType;
-event eAvoidLocation priority 10: locationType;
 
 machine EgoRobot {
     var motionPlanner: machine;
@@ -73,8 +76,8 @@ machine EgoRobot {
             currentLocation = (temp[0], temp[1]);
             temp = GetChargerPosition();
             chargerLocation = (temp[0], temp[1]);
-            motionPrimitives = new MotionPrimitives(this, currentLocation, 0.1, 300.0);
             motionPlanner = new MotionPlanner();
+            motionPrimitives = new MotionPrimitives(this, motionPlanner, currentLocation, 0.1, 300.0);
             battery = new Battery(motionPrimitives, motionPlanner, chargerLocation, 50.0, 100.0);
             goals += (sizeof(goals), (1.0, 1.0));
             goals += (sizeof(goals), (-1.0, 1.0));
@@ -115,7 +118,6 @@ machine MotionPlanner {
     var currentLocation: locationType;
     var goalLocation: locationType;
     var isHighPriorityMotionRequest: bool;
-    var avoidLocations: seq[locationType];
 
     fun DM(): string {
         if (false) {
@@ -127,7 +129,7 @@ machine MotionPlanner {
     fun AC() {
         var motionPlan: seq[locationType];
         var index: int;
-        motionPlan = GetOMPLMotionPlan(currentLocation.0, currentLocation.1, goalLocation.0, goalLocation.1);
+        motionPlan = GetOMPLMotionPlanAC(currentLocation.0, currentLocation.1, goalLocation.0, goalLocation.1);
         index = 0;
         while (index < sizeof(motionPlan)) {
             if (isHighPriorityMotionRequest) {
@@ -140,36 +142,9 @@ machine MotionPlanner {
     }
 
     fun SC() {
-        var waypoint: locationType;
         var motionPlan: seq[locationType];
         var index: int;
-        waypoint = currentLocation;
-        while (waypoint.0 != goalLocation.0 ||
-               waypoint.1 != goalLocation.1) {
-            if (waypoint.0 > goalLocation.0) {
-                waypoint.0 = waypoint.0 - step;
-                if (waypoint.0 < goalLocation.0) {
-                    waypoint.0 = goalLocation.0;
-                }
-            } else if (waypoint.0 < goalLocation.0) {
-                waypoint.0 = waypoint.0 + step;
-                if (waypoint.0 > goalLocation.0) {
-                    waypoint.0 = goalLocation.0;
-                }
-            }
-            if (waypoint.1 > goalLocation.1) {
-                waypoint.1 = waypoint.1 - step;
-                if (waypoint.1 < goalLocation.1) {
-                    waypoint.1 = goalLocation.1;
-                }
-            } else if (waypoint.1 < goalLocation.1) {
-                waypoint.1 = waypoint.1 + step;
-                if (waypoint.1 > goalLocation.1) {
-                    waypoint.1 = goalLocation.1;
-                }
-            }
-            motionPlan += (sizeof(motionPlan), waypoint);
-        }
+        motionPlan = GetOMPLMotionPlanSC(currentLocation.0, currentLocation.1, goalLocation.0, goalLocation.1);
         index = 0;
         while (index < sizeof(motionPlan)) {
             if (isHighPriorityMotionRequest) {
@@ -202,9 +177,6 @@ machine MotionPlanner {
             decisionmodule DM @ {AC: 1, SC: 1};
             on eMotionRequest, eMotionRequestX with handler;
         }
-        on eAvoidLocation do (payload: locationType) {
-            avoidLocations += (sizeof(avoidLocations), payload);
-        }
     }
 }
 
@@ -225,90 +197,113 @@ machine MotionPrimitives {
     var isBatteryLow: bool;
     var bumpCountPerGoalLocation: int;
     var bumpCountThreshold: int;
+    var isPreviouslyBumpedLeft: bool;
+    var isPreviouslyBumpedRight: bool;
+    var isPreviouslyBumpedCenter: bool;
+    var motionPlanner: machine;
+    var isAvoidLocationSent: bool;
+    var backwardCount: int;
 
     fun DM(): string {
         var temp: bool;
         var isBumperReleasedLeft: bool;
+        var isBumperReleasedCenter: bool;
         var isBumperReleasedRight: bool;
         var isCliffLeft: bool;
         var isCliffRight: bool;
         var isCliffCenter: bool;
         isBumperReleasedLeft = GetIsBumperReleasedLeft();
+        isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
         isCliffLeft = GetIsCliffLeft();
         isCliffRight = GetIsCliffRight();
         isCliffCenter = GetIsCliffCenter();
-        if (!isBumperReleasedLeft) {
-            bumpCountPerGoalLocation = bumpCountPerGoalLocation + 1;
-            /*if (bumpCountPerGoalLocation > bumpCountThreshold) {
-                if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
-                    currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
-                } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
-                    currentMotionIndex = currentMotionIndex + 1;
-                }
-            }*/
-            return "LeftObstacleAvoidanceController";//Trun Right
-        }
-        if (!isBumperReleasedRight) {
-            bumpCountPerGoalLocation = bumpCountPerGoalLocation + 1;
-            /*if (bumpCountPerGoalLocation > bumpCountThreshold) {
-                if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
-                    currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
-                } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
-                    currentMotionIndex = currentMotionIndex + 1;
-                }
-            }*/
-            return "RightObstacleAvoidanceController";//Trun Left
+        isAvoidLocationSent = false;
+        SetLed(0, 0); /* set led0 to black */
+        SetLed(1, 0); /* set led1 to black */
+        if ((!isBumperReleasedLeft || !isBumperReleasedCenter || !isBumperReleasedRight)) {
+            SetLed(1, 3); /* set led1 to orange */
+            backwardCount = 0;
+            return "ObstacleAvoidanceController";
         }
         if (isCliffLeft) {
+            SetLed(1, 1); /* set led1 to red */
             return "LeftCliffAvoidanceController";
         }
         if (isCliffRight) {
+            SetLed(1, 1); /* set led1 to red */
             return "RightCliffAvoidanceController";
         }
         if (isCliffCenter) {
+            SetLed(1, 1); /* set led1 to red */
             return "CenterCliffAvoidanceController";
         }
         temp = IsInTrajectory(currentLocation.0, currentLocation.1, currentMotion.0, currentMotion.1, trajectoryDeviationThreshold);
         if (temp) {
+            SetLed(0, 2); /* set led0 to green */
             return "AdvancedMotionController";
         }
+        SetLed(0, 1); /* set led0 to red */
         return "SafeMotionController";
     }
 
-    fun LeftObstacleAvoidanceController() {
+    fun ObstacleAvoidanceController() {
         var isBumperReleasedLeft: bool;
-        var forwardSpeed: float;
-        var rotationSpeed: float;
-        forwardSpeed = 0.2;
-        rotationSpeed = 0.8;
-        isBumperReleasedLeft = GetIsBumperReleasedLeft();
-        if (isBumperReleasedLeft && rotateCount >= 50) {
-            MoveForward(forwardSpeed);
-        } else if (isBumperReleasedLeft) {
-            RotateRight(rotationSpeed);
-            rotateCount = rotateCount + 1;
-        } else {
-            MoveBackward(forwardSpeed);
-            rotateCount = 0;
-        }
-    }
-
-    fun RightObstacleAvoidanceController() {
+        var isBumperReleasedCenter: bool;
         var isBumperReleasedRight: bool;
         var forwardSpeed: float;
         var rotationSpeed: float;
         forwardSpeed = 0.2;
         rotationSpeed = 0.8;
+        isBumperReleasedLeft = GetIsBumperReleasedLeft();
+        isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
-        if (isBumperReleasedRight && rotateCount >= 50) {
-            MoveForward(forwardSpeed);
-        } else if (isBumperReleasedRight) {
+        if (!isAvoidLocationSent) {
+            isAvoidLocationSent = true;
+            RegisterAvoidLocation();
+        }
+        if (!isBumperReleasedLeft || backwardCount < 20) {
+            MoveBackward(forwardSpeed);
+            isPreviouslyBumpedLeft = true;
+            isPreviouslyBumpedCenter = false;
+            isPreviouslyBumpedRight = false;
+            rotateCount = 0;
+            if (isBumperReleasedLeft) {
+                backwardCount = backwardCount + 1;
+            }
+        } else if (!isBumperReleasedCenter || backwardCount < 50) {
+            MoveBackward(forwardSpeed);
+            isPreviouslyBumpedLeft = false;
+            isPreviouslyBumpedCenter = true;
+            isPreviouslyBumpedRight = false;
+            rotateCount = 0;
+            if (isBumperReleasedCenter) {
+                backwardCount = backwardCount + 1;
+            }
+        } else if (!isBumperReleasedRight || backwardCount < 50) {
+            MoveBackward(forwardSpeed);
+            isPreviouslyBumpedLeft = false;
+            isPreviouslyBumpedCenter = false;
+            isPreviouslyBumpedRight = true;
+            rotateCount = 0;
+            if (isBumperReleasedRight) {
+                backwardCount = backwardCount + 1;
+            }
+        } else if (isPreviouslyBumpedLeft && rotateCount < 100) {
+            RotateRight(rotationSpeed);
+            rotateCount = rotateCount + 1;
+        } else if (isPreviouslyBumpedCenter && rotateCount < 100) {
             RotateLeft(rotationSpeed);
             rotateCount = rotateCount + 1;
-        } else {
-            MoveBackward(forwardSpeed);
-            rotateCount = 0;
+        } else if (isPreviouslyBumpedRight && rotateCount < 100) {
+            RotateLeft(rotationSpeed);
+            rotateCount = rotateCount + 1;
+        } else if (isPreviouslyBumpedLeft) {
+            MoveForward(forwardSpeed, 0.4);
+        } else if (isPreviouslyBumpedCenter) {
+            MoveForward(forwardSpeed, -0.4);
+        } else if (isPreviouslyBumpedRight) {
+            MoveForward(forwardSpeed, -0.4);
         }
     }
 
@@ -321,7 +316,7 @@ machine MotionPrimitives {
         isCliffLeft = GetIsCliffLeft();
         if (!isCliffLeft) {
             if (rotateCount >= 10) {
-                MoveForward(forwardSpeed);
+                MoveForward(forwardSpeed, 0.0);
             } else {
                 RotateRight(rotationSpeed);
                 rotateCount = rotateCount + 1;
@@ -341,7 +336,7 @@ machine MotionPrimitives {
         isCliffLeft = GetIsCliffRight();
         if (!isCliffLeft) {
             if (rotateCount >= 10) {
-                MoveForward(forwardSpeed);
+                MoveForward(forwardSpeed, 0.0);
             } else {
                 RotateLeft(rotationSpeed);
                 rotateCount = rotateCount + 1;
@@ -361,7 +356,7 @@ machine MotionPrimitives {
         isCliffLeft = GetIsCliffCenter();
         if (!isCliffLeft) {
             if (rotateCount >= 10) {
-                MoveForward(forwardSpeed);
+                MoveForward(forwardSpeed, 0.0);
             } else {
                 /* RotateRight(rotationSpeed); */
                 RotateLeft(rotationSpeed);
@@ -381,24 +376,30 @@ machine MotionPrimitives {
         if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
             currentMotion = highPriorityMotions[currentHighPriorityMotionsIndex];
             if (!RotateTowardsLocation(currentMotion.0, currentMotion.1, rotationSpeed)) {
-                MoveForward(forwardSpeed);
+                MoveForward(forwardSpeed, 0.0);
             }
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
                 currentLocation = currentMotion;
                 currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
                 bumpCountPerGoalLocation = 0;
+                isPreviouslyBumpedLeft = false;
+                isPreviouslyBumpedCenter = false;
+                isPreviouslyBumpedRight = false;
                 send robot, eCurrentLocation, currentLocation;
             }
             safeMotionControllerCount = safeMotionControllerCount + 1;
         } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
             currentMotion = motions[currentMotionIndex];
             if (!RotateTowardsLocation(currentMotion.0, currentMotion.1, rotationSpeed)) {
-                MoveForward(forwardSpeed);
+                MoveForward(forwardSpeed, 0.0);
             }
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
                 currentLocation = currentMotion;
                 currentMotionIndex = currentMotionIndex + 1;
                 bumpCountPerGoalLocation = 0;
+                isPreviouslyBumpedLeft = false;
+                isPreviouslyBumpedCenter = false;
+                isPreviouslyBumpedRight = false;
                 send robot, eCurrentLocation, currentLocation;
             }
             safeMotionControllerCount = safeMotionControllerCount + 1;
@@ -417,6 +418,9 @@ machine MotionPrimitives {
                 currentLocation = currentMotion;
                 currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
                 bumpCountPerGoalLocation = 0;
+                isPreviouslyBumpedLeft = false;
+                isPreviouslyBumpedCenter = false;
+                isPreviouslyBumpedRight = false;
                 send robot, eCurrentLocation, currentLocation;
             }
             advancedMotionControllerCount = advancedMotionControllerCount + 1;
@@ -427,6 +431,9 @@ machine MotionPrimitives {
                 currentLocation = currentMotion;
                 currentMotionIndex = currentMotionIndex + 1;
                 bumpCountPerGoalLocation = 0;
+                isPreviouslyBumpedLeft = false;
+                isPreviouslyBumpedCenter = false;
+                isPreviouslyBumpedRight = false;
                 send robot, eCurrentLocation, currentLocation;
             }
             advancedMotionControllerCount = advancedMotionControllerCount + 1;
@@ -436,18 +443,23 @@ machine MotionPrimitives {
     }
 
     start state Init {
-        entry (payload: (machine, locationType, float, float)) {
+        entry (payload: (machine, machine, locationType, float, float)) {
             currentMotionIndex = 0;
             currentHighPriorityMotionsIndex = 0;
             robot = payload.0;
-            currentLocation = payload.1;
-            trajectoryDeviationThreshold = payload.2;
+            motionPlanner = payload.1;
+            currentLocation = payload.2;
+            trajectoryDeviationThreshold = payload.3;
             advancedMotionControllerCount = 0;
             safeMotionControllerCount = 0;
             rotateCount = 0;
             isBatteryLow = false;
             bumpCountPerGoalLocation = 0;
-            bumpCountThreshold = 3;
+            bumpCountThreshold = 2;
+            isPreviouslyBumpedLeft = false;
+            isPreviouslyBumpedCenter = false;
+            isPreviouslyBumpedRight = false;
+            isAvoidLocationSent = false;
             goto Run;
         }
     }
@@ -456,15 +468,13 @@ machine MotionPrimitives {
         rtamodule {
             controller SafeMotionController period 20 ms;
             controller AdvancedMotionController period 10 ms;
-            controller LeftObstacleAvoidanceController period 20 ms;
-            controller RightObstacleAvoidanceController period 20 ms;
+            controller ObstacleAvoidanceController period 20 ms;
             controller LeftCliffAvoidanceController period 20 ms;
             controller RightCliffAvoidanceController period 20 ms;
             controller CenterCliffAvoidanceController period 20 ms;
             decisionmodule DM @ {SafeMotionController: 1,
                                  AdvancedMotionController: 1,
-                                 LeftObstacleAvoidanceController: 100,
-                                 RightObstacleAvoidanceController: 100,
+                                 ObstacleAvoidanceController: 400,
                                  LeftCliffAvoidanceController: 100,
                                  RightCliffAvoidanceController: 100,
                                  CenterCliffAvoidanceController: 100};
@@ -487,15 +497,13 @@ machine MotionPrimitives {
         rtamodule {
             controller SafeMotionController period 20 ms;
             controller AdvancedMotionController period 10 ms;
-            controller LeftObstacleAvoidanceController period 20 ms;
-            controller RightObstacleAvoidanceController period 20 ms;
+            controller ObstacleAvoidanceController period 20 ms;
             controller LeftCliffAvoidanceController period 20 ms;
             controller RightCliffAvoidanceController period 20 ms;
             controller CenterCliffAvoidanceController period 20 ms;
             decisionmodule DM @ {SafeMotionController: 1,
                                  AdvancedMotionController: 1,
-                                 LeftObstacleAvoidanceController: 100,
-                                 RightObstacleAvoidanceController: 100,
+                                 ObstacleAvoidanceController: 400,
                                  LeftCliffAvoidanceController: 100,
                                  RightCliffAvoidanceController: 100,
                                  CenterCliffAvoidanceController: 100};

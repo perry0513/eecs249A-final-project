@@ -15,7 +15,6 @@ extern "C" {
     extern PRT_EVENTDECL P_EVENT_eBatteryRecovered;
     extern PRT_EVENTDECL P_EVENT_eCurrentLocation;
     extern PRT_EVENTDECL P_EVENT_eCurrentGoal;
-    extern PRT_EVENTDECL P_EVENT_eAvoidLocation;
     extern PRT_INTERFACEDECL P_I_EgoRobot;
     extern PRT_INTERFACEDECL P_I_MotionPlanner;
     extern PRT_INTERFACEDECL P_I_MotionPrimitives;
