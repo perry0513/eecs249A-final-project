@@ -20,6 +20,7 @@ fun GetOMPLMotionPlanAC(currentLocationX: float, currentLocationZ: float, goalLo
 fun GetOMPLMotionPlanSC(currentLocationX: float, currentLocationZ: float, goalLocationX: float, goalLocationZ: float): seq[(float, float)];
 fun RegisterAvoidLocation(x_goal: float, z_goal: float): bool;
 fun SetLed(led_num: int, led_color: int): int;
+fun isTherePotentialAvoidLocation(): bool;
 
 type locationType = (float, float);
 
@@ -74,7 +75,7 @@ machine EgoRobot {
             temp = GetChargerPosition();
             chargerLocation = (temp[0], temp[1]);
             motionPlanner = new MotionPlanner();
-            motionPrimitives = new MotionPrimitives(this, motionPlanner, currentLocation, 0.1, 300.0);
+            motionPrimitives = new MotionPrimitives(this, motionPlanner, currentLocation, 0.2, 300.0);
             battery = new Battery(motionPrimitives, motionPlanner, chargerLocation, 50.0, 100.0);
             goals += (sizeof(goals), (1.0, 1.0));
             goals += (sizeof(goals), (-1.0, 1.0));

@@ -22,13 +22,13 @@ machine MotionPrimitives {
     var isAvoidLocationSent: bool;
     var backwardCount: int;
     var tempLocation: seq[float];
+    var tourCount: int;
 
     fun DM(): string {
         var temp: bool;
         var isBumperReleasedLeft: bool;
         var isBumperReleasedCenter: bool;
         var isBumperReleasedRight: bool;
-        print("DecisonModule");
         isBumperReleasedLeft = GetIsBumperReleasedLeft();
         isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
@@ -40,7 +40,7 @@ machine MotionPrimitives {
             return "ObstacleAvoidanceController";
         }
         temp = IsInTrajectory(currentMotion.0, currentMotion.1, trajectoryDeviationThreshold);
-        if (temp) {
+        if (tourCount > 1 && temp && !isTherePotentialAvoidLocation()) {
             SetLed(0, 2); /* set led0 to green */
             return "AdvancedMotionController";
         }
@@ -55,9 +55,8 @@ machine MotionPrimitives {
         var forwardSpeed: float;
         var rotationSpeed: float;
         var shouldKeepCurrentMotion: bool;
-        print("ObstacleAvoidanceController");
-        forwardSpeed = 0.2;
-        rotationSpeed = 0.8;
+        forwardSpeed = 0.1;
+        rotationSpeed = 0.4;
         isBumperReleasedLeft = GetIsBumperReleasedLeft();
         isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
@@ -96,39 +95,42 @@ machine MotionPrimitives {
                 isPreviouslyBumpedRight = true;
             }
             backwardCount = 0;
-        } else if (backwardCount < 50) {
+        } else if (backwardCount < 100) {
             MoveBackward(forwardSpeed);
             backwardCount = backwardCount + 1;
             rotateCount = 0;
-        } else if (isPreviouslyBumpedLeft && rotateCount < 100) {
+        } else if (isPreviouslyBumpedLeft && rotateCount < 200) {
             RotateRight(rotationSpeed);
             rotateCount = rotateCount + 1;
-        } else if (isPreviouslyBumpedCenter && rotateCount < 100) {
+        } else if (isPreviouslyBumpedCenter && rotateCount < 200) {
             RotateLeft(rotationSpeed);
             rotateCount = rotateCount + 1;
-        } else if (isPreviouslyBumpedRight && rotateCount < 100) {
+        } else if (isPreviouslyBumpedRight && rotateCount < 200) {
             RotateLeft(rotationSpeed);
             rotateCount = rotateCount + 1;
         } else if (isPreviouslyBumpedLeft) {
-            MoveForward(forwardSpeed, 0.4);
+            MoveForward(forwardSpeed, 0.2);
         } else if (isPreviouslyBumpedCenter) {
-            MoveForward(forwardSpeed, -0.4);
+            MoveForward(forwardSpeed, -0.2);
         } else if (isPreviouslyBumpedRight) {
-            MoveForward(forwardSpeed, -0.4);
+            MoveForward(forwardSpeed, -0.2);
         }
     }
 
     fun SafeMotionController() {
         var forwardSpeed: float;
         var rotationSpeed: float;
-        forwardSpeed = 0.2;
-        rotationSpeed = 0.8;
+        forwardSpeed = 0.1;
+        rotationSpeed = 0.4;
         if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
             currentMotion = highPriorityMotions[currentHighPriorityMotionsIndex];
             if (!RotateTowardsLocation(currentMotion.0, currentMotion.1, rotationSpeed)) {
                 MoveForward(forwardSpeed, 0.0);
             }
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
+                if (currentMotion.0 == 1.0 && currentMotion.1 == 1.0) {
+                    tourCount = tourCount + 1;
+                }
                 tempLocation = GetRobotPosition();
                 currentLocation = (tempLocation[0], tempLocation[1]);
                 currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
@@ -145,6 +147,9 @@ machine MotionPrimitives {
                 MoveForward(forwardSpeed, 0.0);
             }
             if (CheckIfReached(currentMotion.0, currentMotion.1, forwardSpeed)) {
+                if (currentMotion.0 == 1.0 && currentMotion.1 == 1.0) {
+                    tourCount = tourCount + 1;
+                }
                 tempLocation = GetRobotPosition();
                 currentLocation = (tempLocation[0], tempLocation[1]);
                 currentMotionIndex = currentMotionIndex + 1;
@@ -167,6 +172,9 @@ machine MotionPrimitives {
             currentMotion = highPriorityMotions[currentHighPriorityMotionsIndex];
             StepPID(currentMotion.0, currentMotion.1);
             if (CheckIfReached(currentMotion.0, currentMotion.1, speedMultiplier)) {
+                if (currentMotion.0 == 1.0 && currentMotion.1 == 1.0) {
+                    tourCount = tourCount + 1;
+                }
                 tempLocation = GetRobotPosition();
                 currentLocation = (tempLocation[0], tempLocation[1]);
                 currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
@@ -181,6 +189,9 @@ machine MotionPrimitives {
             currentMotion = motions[currentMotionIndex];
             StepPID(currentMotion.0, currentMotion.1);
             if (CheckIfReached(currentMotion.0, currentMotion.1, speedMultiplier)) {
+                if (currentMotion.0 == 1.0 && currentMotion.1 == 1.0) {
+                    tourCount = tourCount + 1;
+                }
                 tempLocation = GetRobotPosition();
                 currentLocation = (tempLocation[0], tempLocation[1]);
                 currentMotionIndex = currentMotionIndex + 1;
@@ -199,6 +210,8 @@ machine MotionPrimitives {
     start state Init {
         entry (payload: (machine, machine, locationType, float, float)) {
             currentMotionIndex = 0;
+            currentMotion.0 = 0.0;
+            currentMotion.1 = 0.0;
             currentHighPriorityMotionsIndex = 0;
             robot = payload.0;
             motionPlanner = payload.1;
@@ -214,6 +227,7 @@ machine MotionPrimitives {
             isPreviouslyBumpedCenter = false;
             isPreviouslyBumpedRight = false;
             isAvoidLocationSent = false;
+            tourCount = 0;
             goto Run;
         }
     }
@@ -225,7 +239,7 @@ machine MotionPrimitives {
             controller ObstacleAvoidanceController period 20 ms;
             decisionmodule DM @ {SafeMotionController: 1,
                                  AdvancedMotionController: 1,
-                                 ObstacleAvoidanceController: 400};
+                                 ObstacleAvoidanceController: 800};
         }
         on eMotion do (payload: locationType) {
             motions += (sizeof(motions), payload);
@@ -250,7 +264,7 @@ machine MotionPrimitives {
             controller ObstacleAvoidanceController period 20 ms;
             decisionmodule DM @ {SafeMotionController: 1,
                                  AdvancedMotionController: 1,
-                                 ObstacleAvoidanceController: 400};
+                                 ObstacleAvoidanceController: 800};
         }
         on eMotionX do (payload: locationType) {
             highPriorityMotions += (sizeof(highPriorityMotions), payload);

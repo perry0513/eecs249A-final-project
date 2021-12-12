@@ -750,7 +750,9 @@ PRT_VALUE* P_GetOMPLMotionPlanAC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
   
     // attempt to solve the problem within one second of planning time
     ob::PlannerStatus solved = ss.solve();
-
+    PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+    PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
+    value = PrtMkDefaultValue(seqType);
     if (solved) {
         std::cout << "Found solution:" << std::endl;
         // print the path to screen
@@ -758,26 +760,36 @@ PRT_VALUE* P_GetOMPLMotionPlanAC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
         ss.getSolutionPath().print(std::cout);
         waypoints = ss.getSolutionPath();
         std::vector<ob::State*> waypointsVector = waypoints.getStates();
-        PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
-        PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
-        value = PrtMkDefaultValue(seqType);
-        for (unsigned int i = 0; i < waypointsVector.size(); i++) {
-          PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
-          PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
-          value2->discriminator = PRT_VALUE_KIND_TUPLE;
-          value2->valueUnion.tuple = tupPtr;            
-          tupPtr->size = 2;
-          tupPtr->values = (PRT_VALUE**)PrtCalloc(2, sizeof(PRT_VALUE));
-          tupPtr->values[0] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getX());
-          tupPtr->values[1] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getY());
-          PrtSeqInsert(value, PrtMkIntValue(i), value2);
+        if (waypointsVector[waypointsVector.size() - 1]->as<ob::SE2StateSpace::StateType>()->getX() == goalLocationX &&
+            waypointsVector[waypointsVector.size() - 1]->as<ob::SE2StateSpace::StateType>()->getY() == goalLocationZ) {
+          for (unsigned int i = 1; i < waypointsVector.size(); i++) {
+            PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
+            PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+            value2->discriminator = PRT_VALUE_KIND_TUPLE;
+            value2->valueUnion.tuple = tupPtr;
+            tupPtr->size = 2;
+            tupPtr->values = (PRT_VALUE**)PrtCalloc(2, sizeof(PRT_VALUE));
+            tupPtr->values[0] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getX());
+            tupPtr->values[1] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getY());
+            PrtSeqInsert(value, PrtMkIntValue(i - 1), value2);
+          }
+          ss.clear();
+          return value; 
         }
-        ss.clear();
-        return value;
     }
     ss.clear();
     std::cout << "No solution found" << std::endl;
-    return NULL;
+    PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
+    PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+    value2->discriminator = PRT_VALUE_KIND_TUPLE;
+    value2->valueUnion.tuple = tupPtr;
+    tupPtr->size = 2;
+    tupPtr->values = (PRT_VALUE**)PrtCalloc(2, sizeof(PRT_VALUE));
+    tupPtr->values[0] = PrtMkFloatValue(goalLocationX);
+    tupPtr->values[1] = PrtMkFloatValue(goalLocationZ);
+    PrtSeqInsert(value, PrtMkIntValue(0), value2);
+    value = PrtMkDefaultValue(seqType);
+    return value;
  }
 
 PRT_VALUE* P_SetLed_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
@@ -853,7 +865,7 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
         PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
         PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
         value = PrtMkDefaultValue(seqType);
-        for (unsigned int i = 0; i < waypointsVector.size(); i++) {
+        for (unsigned int i = 1; i < waypointsVector.size(); i++) {
           PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
           PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
           value2->discriminator = PRT_VALUE_KIND_TUPLE;
@@ -862,7 +874,7 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
           tupPtr->values = (PRT_VALUE**)PrtCalloc(2, sizeof(PRT_VALUE));
           tupPtr->values[0] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getX());
           tupPtr->values[1] = PrtMkFloatValue(waypointsVector[i]->as<ob::SE2StateSpace::StateType>()->getY());
-          PrtSeqInsert(value, PrtMkIntValue(i), value2);
+          PrtSeqInsert(value, PrtMkIntValue(i - 1), value2);
         }
         ss.clear();
         return value;
@@ -872,11 +884,16 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
     return NULL;
  }
 
-    
 
 
-
-
+PRT_VALUE* P_isTherePotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  float minDistance = std::numeric_limits<float>::max();
+  for (auto it = potentialAvoidLocations.begin(); it != potentialAvoidLocations.end(); it++) {
+    minDistance = std::min(minDistance, getDistanceBetweenPairs(x_position, z_position, (*it).first, (*it).second));
+  }
+  bool returnValue = minDistance <= 2 * R;
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
 
 
 
