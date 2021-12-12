@@ -16,6 +16,8 @@
 
 #include "helper.hpp"
 
+#include <time.h>
+
 #include <limits>
 #include <string>
 
@@ -29,6 +31,7 @@
 #include "kobuki_core/event_manager.hpp"
 
 #include <cmath>
+#include <set>
 
 #include <fstream>
 #include <iostream>
@@ -51,14 +54,14 @@
 
 #include<utility>
 
-#define R 0.15
+#define R 0.2
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
 // OMPL constants
-static const double GRIDLOW = -1.25;
-static const double GRIDHIGH = 1.25;
+static const double GRIDLOW = -2.0;
+static const double GRIDHIGH = 2.0;
 
 double x_position = 0.0;
 double y_position = 0.0;
@@ -87,7 +90,8 @@ std::shared_ptr<ob::SE2StateSpace> space(std::make_shared<ob::SE2StateSpace>());
 og::SimpleSetup ss(space);
 og::PathGeometric waypoints(ss.getSpaceInformation());
 
-std::vector<std::pair<float, float> > avoidLocations;
+std::set<std::pair<float, float> > avoidLocations;
+std::set<std::pair<float, float> > potentialAvoidLocations;
 
 float K_ap;
 float K_av;
@@ -125,6 +129,14 @@ public:
     parameters.device_port = device;
     parameters.enable_acceleration_limiter = !disable_smoothing;
 
+    pose[0] = 0;
+    pose[1] = 0;
+    pose[2] = 0;
+
+    pose2[0] = 0;
+    pose2[1] = 0;
+    pose2[2] = 0;
+
     kobuki.init(parameters);
     kobuki.enable();
     slot_stream_data.connect("/kobuki/stream_data");
@@ -155,28 +167,44 @@ public:
     ecl::linear_algebra::Vector3d pose_update;
     ecl::linear_algebra::Vector3d pose_update_rates;
     kobuki.updateOdometry(pose_update, pose_update_rates);
-    ecl::concatenate_poses(pose, pose_update);
-    dx += pose_update[0];   // x
-    dth += pose_update[2];  // heading
-    pose[2] += pose_update[2];
-    pose[0] += pose_update[0] * cos(pose[2]);
-    pose[1] += pose_update[0] * sin(pose[2]);
+    float c = std::cos(pose[2]);
+    float s = std::sin(pose[2]);
+    float tempX = pose[0] + c*pose_update[0] - s*pose_update[1];
+    float tempZ = pose[1] + s*pose_update[0] + c*pose_update[1];
+    float tempTheta = pose[2] + pose_update[2];
+    while (tempTheta > 2*M_PI) {
+      tempTheta -= 2*M_PI;
+    }
+    while (tempTheta < 0) {
+      tempTheta += 2*M_PI;
+    }
+    pose[0] = tempX;
+    pose[1] = tempZ;
+    pose[2] = tempTheta;
+    // ecl::concatenate_poses(pose, pose_update);
+    
+    // dx += pose_update[0];   // x
+    // dth += pose_update[2];  // heading
+    // pose[2] += pose_update[2];
+    // pose[0] += pose_update[0] * cos(pose[2]);
+    // pose[1] += pose_update[0] * sin(pose[2]);
     x_position = pose[0];
     z_position = pose[1];
     orientation = pose[2];
-    while (orientation > 2*M_PI) {
-      orientation -= 2*M_PI;
-    }
-    while (orientation < 0) {
-      orientation += 2*M_PI;
-    }
   }
 
   const ecl::linear_algebra::Vector3d& getPose() {
     return pose;
   }
 
-  void processBumperEvent(const kobuki::BumperEvent &event) {
+  void processBumperEvent(const kobuki::BumperEvent &event) {long int ns;
+    time_t sec;
+    struct timespec spec;
+
+    clock_gettime(CLOCK_REALTIME, &spec);
+    //sec = spec.tv_sec;
+    ns = spec.tv_nsec;
+    std::cout << ns << std::endl;
     if (event.state == kobuki::BumperEvent::Released) {
       switch (event.bumper) {
         case kobuki::BumperEvent::Left  : is_bumper_released_left   = true; break;
@@ -191,6 +219,7 @@ public:
         case kobuki::BumperEvent::Right : is_bumper_released_right  = false; break;
       }
     }
+    // std::cout << is_bumper_released_left << " | " << is_bumper_released_center << " | " << is_bumper_released_right << std::endl;
   }
 
   void processButtonEvent(const kobuki::ButtonEvent &event) {
@@ -347,6 +376,7 @@ private:
   double dx, dth;
   const double length;
   ecl::linear_algebra::Vector3d pose;  // x, y, heading
+  ecl::linear_algebra::Vector3d pose2;  // x, y, heading
   kobuki::Kobuki kobuki;
   ecl::Slot<> slot_stream_data;
   ecl::Slot<const kobuki::BumperEvent&> slot_bumper_event;
@@ -384,9 +414,8 @@ float getDistance(const ob::State *state, float tempX, float tempY) {
 }
 
 bool isStateValid(const ob::State *state) {
-
-    for (unsigned int i = 0; i < avoidLocations.size(); i++) {
-      if (getDistance(state, avoidLocations[i].first, avoidLocations[i].second) < R) {
+    for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
+      if (getDistance(state, (*it).first, (*it).second) < R) {
         return false;
       }
     }
@@ -436,12 +465,14 @@ PRT_VALUE* P_MoveBackward_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
 PRT_VALUE* P_RotateLeft_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   float speed = PrtPrimGetFloat(*argRefs[0]);
+  // std::cout << "RotateLeft" << std::endl;
   kobuki_manager.turnLeft(speed);
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
 PRT_VALUE* P_RotateRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   float speed = PrtPrimGetFloat(*argRefs[0]);
+  // std::cout << "RotateRight" << std::endl;
   kobuki_manager.turnRight(speed);
   return PrtMkIntValue((PRT_UINT32)1);
 }
@@ -482,6 +513,7 @@ PRT_VALUE* P_GetIsCliffRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs
 }
 
 PRT_VALUE* P_GetRobotPosition_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  // std::cout << "Get Robot Position" << std::endl;
   PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
   PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
   value = PrtMkDefaultValue(seqType);
@@ -546,8 +578,14 @@ PRT_VALUE* P_Stay_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
+float getDistanceBetweenPairs(float p1X, float p1Z, float p2X, float p2Z) {
+  return sqrt(pow(p1X - p2X, 2) + pow(p1Z - p2Z, 2));
+}
+
 PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   // Compute the avoidLocation
+  float x_goal = PrtPrimGetFloat(*argRefs[0]);
+  float z_goal = PrtPrimGetFloat(*argRefs[1]);
   float x, z;
   float angle;
   if (!kobuki_manager.get_is_bumper_released_left()) {
@@ -559,9 +597,22 @@ PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** a
   }
   x = x_position + cos(angle) * R;
   z = z_position + sin(angle) * R;
-  avoidLocations.push_back(std::make_pair(x, z));
-  std::cout << "Avoid: " << x << ", " << z << std::endl;
-  return PrtMkIntValue((PRT_UINT32)1);
+  std::pair<float, float> potentialAvoidLocation(x, z);
+  //std::cout << "potentialAvoidLocation: " << potentialAvoidLocation.first << " " << potentialAvoidLocation.second << std::endl;
+  for (auto it = potentialAvoidLocations.begin(); it != potentialAvoidLocations.end(); it++) {
+    if (getDistanceBetweenPairs(potentialAvoidLocation.first, potentialAvoidLocation.second, (*it).first, (*it).second) <= 2 * R) {
+      avoidLocations.insert(*it);
+      avoidLocations.insert(potentialAvoidLocation);
+    }
+  }
+  potentialAvoidLocations.insert(potentialAvoidLocation);
+  for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
+    //std::cout << "avoidLocation: " << (*it).first << " " << (*it).second << std::endl;
+    if (getDistanceBetweenPairs(x_goal, z_goal, (*it).first, (*it).second) <= 2 * R) {
+      return PrtMkBoolValue((PRT_BOOLEAN)false);
+    }
+  }
+  return PrtMkBoolValue((PRT_BOOLEAN)true);
 }
 
 PRT_VALUE* P_GetBatteryLevel_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
@@ -569,27 +620,12 @@ PRT_VALUE* P_GetBatteryLevel_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs
 }
 
 PRT_VALUE* P_IsInTrajectory_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
-  float x_0 = PrtPrimGetFloat(*argRefs[0]);
-  float z_0 = PrtPrimGetFloat(*argRefs[1]);
-  float x_1 = PrtPrimGetFloat(*argRefs[2]);
-  float z_1 = PrtPrimGetFloat(*argRefs[3]);
-  float trajectoryDeviationThreshold = PrtPrimGetFloat(*argRefs[4]);
-  double angle2Goal = atan2((z_position - z_1), (x_position - x_1)) - M_PI;
-  angle2Goal = angle2Goal < 0 ? angle2Goal + 2*M_PI : angle2Goal;
-  double theta = angle2Goal - orientation;
-  while (theta > M_PI) {
-    theta -= 2*M_PI;
-  }
-  while (theta < -M_PI) {
-    theta += 2*M_PI;
-  }
-  theta = fabs(theta);
-  if (theta > M_PI/2) {
-    return PrtMkBoolValue((PRT_BOOLEAN)false);
-  }
-  float trajectoryDeviationDistance = sqrt(pow(x_position - x_0, 2) + pow(z_position - z_0, 2));
-  float trajectoryDeviation = fabs(trajectoryDeviationDistance * sin(theta));
-  if (trajectoryDeviation >= trajectoryDeviationThreshold) {
+  float x_goal = PrtPrimGetFloat(*argRefs[0]);
+  float z_goal = PrtPrimGetFloat(*argRefs[1]);
+  float trajectoryDeviationThreshold = PrtPrimGetFloat(*argRefs[2]);
+  float trajectoryDeviation = fabs((x_goal - x_start) * (z_start - z_position) - (x_start - x_position) * (z_goal - z_start)) / sqrt(pow(x_goal - x_start, 2) + pow(z_goal - z_start, 2));
+  //std::cout << "trajectoryDeviation: " << trajectoryDeviation << std::endl;
+  if (trajectoryDeviation > trajectoryDeviationThreshold) {
     return PrtMkBoolValue((PRT_BOOLEAN)false);
   }
   return PrtMkBoolValue((PRT_BOOLEAN)true);
@@ -706,14 +742,14 @@ PRT_VALUE* P_GetOMPLMotionPlanAC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
     ss.setOptimizationObjective(getPathLengthObjective(ss.getSpaceInformation()));
     ob::PlannerPtr optimizingPlanner(new og::RRTstar(ss.getSpaceInformation()));
     ss.setPlanner(optimizingPlanner);
-    //std::cout << "Planning towards: " << goalLocation << std::endl;
+    // std::cout << "Planning towards: " << goalLocation << std::endl;
 
     // this call is optional, but we put it in to get more output information
     /* ss.setup(); */
     /* ss.print(); */
   
     // attempt to solve the problem within one second of planning time
-    ob::PlannerStatus solved = ss.solve(1.0);
+    ob::PlannerStatus solved = ss.solve();
 
     if (solved) {
         std::cout << "Found solution:" << std::endl;
@@ -761,8 +797,8 @@ public:
     ob::Cost stateCost(const ob::State* state) const
     {
       float minDistance = std::numeric_limits<float>::max();
-      for (unsigned int i = 0; i < avoidLocations.size(); i++) {
-        minDistance = std::min(minDistance, getDistance(state, avoidLocations[i].first, avoidLocations[i].second));
+      for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
+        minDistance = std::min(minDistance, getDistance(state, (*it).first, (*it).second));
       }
       return ob::Cost(1 / minDistance);
     }
@@ -773,7 +809,7 @@ ob::OptimizationObjectivePtr getBalancedObjective(const ob::SpaceInformationPtr&
     ob::OptimizationObjectivePtr lengthObj(new ob::PathLengthOptimizationObjective(si));
     ob::OptimizationObjectivePtr clearObj(new ClearanceObjective(si));
  
-    return 10.0*lengthObj + clearObj;
+    return lengthObj + clearObj;
 }
 
 PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
