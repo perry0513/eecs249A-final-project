@@ -15,9 +15,9 @@ machine MotionPrimitives {
     var isBatteryLow: bool;
     var bumpCountPerGoalLocation: int;
     var bumpCountThreshold: int;
-    var isPreviouslyBumpedLeft: bool;
-    var isPreviouslyBumpedRight: bool;
-    var isPreviouslyBumpedCenter: bool;
+    var isPreviouslyBumpedLeft: bool; // RESET WHEN BATTERY IS LOW!!!!
+    var isPreviouslyBumpedRight: bool; // RESET WHEN BATTERY IS LOW!!!!
+    var isPreviouslyBumpedCenter: bool; // RESET WHEN BATTERY IS LOW!!!!
     var motionPlanner: machine;
     var isAvoidLocationSent: bool;
     var backwardCount: int;
@@ -40,11 +40,15 @@ machine MotionPrimitives {
             return "ObstacleAvoidanceController";
         }
         temp = IsInTrajectory(currentMotion.0, currentMotion.1, trajectoryDeviationThreshold);
-        if (tourCount > 1 && temp && !isTherePotentialAvoidLocation()) {
+        if (tourCount > 1 && temp && !IsTherePotentialAvoidLocation()) {
+            FirstTourIsCompleted();
             SetLed(0, 2); /* set led0 to green */
             return "AdvancedMotionController";
         }
         SetLed(0, 1); /* set led0 to red */
+        if (isBatteryLow) {
+            SetLed(0, 3); /* set led0 to orange */
+        }
         return "SafeMotionController";
     }
 
@@ -99,13 +103,13 @@ machine MotionPrimitives {
             MoveBackward(forwardSpeed);
             backwardCount = backwardCount + 1;
             rotateCount = 0;
-        } else if (isPreviouslyBumpedLeft && rotateCount < 200) {
+        } else if (isPreviouslyBumpedLeft && rotateCount < 300) {
             RotateRight(rotationSpeed);
             rotateCount = rotateCount + 1;
-        } else if (isPreviouslyBumpedCenter && rotateCount < 200) {
+        } else if (isPreviouslyBumpedCenter && rotateCount < 300) {
             RotateLeft(rotationSpeed);
             rotateCount = rotateCount + 1;
-        } else if (isPreviouslyBumpedRight && rotateCount < 200) {
+        } else if (isPreviouslyBumpedRight && rotateCount < 300) {
             RotateLeft(rotationSpeed);
             rotateCount = rotateCount + 1;
         } else if (isPreviouslyBumpedLeft) {
@@ -239,7 +243,7 @@ machine MotionPrimitives {
             controller ObstacleAvoidanceController period 20 ms;
             decisionmodule DM @ {SafeMotionController: 1,
                                  AdvancedMotionController: 1,
-                                 ObstacleAvoidanceController: 800};
+                                 ObstacleAvoidanceController: 1000};
         }
         on eMotion do (payload: locationType) {
             motions += (sizeof(motions), payload);
@@ -264,12 +268,13 @@ machine MotionPrimitives {
             controller ObstacleAvoidanceController period 20 ms;
             decisionmodule DM @ {SafeMotionController: 1,
                                  AdvancedMotionController: 1,
-                                 ObstacleAvoidanceController: 800};
+                                 ObstacleAvoidanceController: 1000};
         }
         on eMotionX do (payload: locationType) {
             highPriorityMotions += (sizeof(highPriorityMotions), payload);
         }
         on eBatteryRecovered goto Run with (payload: machine) {
+            ResetOdometry();
             send payload, eCurrentGoal, lastGoal;
             isBatteryLow = false;
         }

@@ -20,7 +20,9 @@ fun GetOMPLMotionPlanAC(currentLocationX: float, currentLocationZ: float, goalLo
 fun GetOMPLMotionPlanSC(currentLocationX: float, currentLocationZ: float, goalLocationX: float, goalLocationZ: float): seq[(float, float)];
 fun RegisterAvoidLocation(x_goal: float, z_goal: float): bool;
 fun SetLed(led_num: int, led_color: int): int;
-fun isTherePotentialAvoidLocation(): bool;
+fun IsTherePotentialAvoidLocation(): bool;
+fun FirstTourIsCompleted(): int;
+fun ResetOdometry(): int;
 
 type locationType = (float, float);
 

@@ -77,8 +77,12 @@ double charger_x = 0.0;
 double charger_y = 0.0;
 double charger_z = 0.0;
 
-float batteryLevel = 100.0;
-float batteryStep = 0.1;
+bool firstTourIsCompleted = false;
+
+
+// ASSUMPTION: WE COMPLETE THE FIRST TOUR BEFORE BATTERY DRAINS!!!!
+float batteryLevel = 1000.0;
+float batteryStep = 0.01;
 
 float prev_position_difference = 0.0;
 float prev_angle_difference = 0.0;
@@ -133,10 +137,6 @@ public:
     pose[1] = 0;
     pose[2] = 0;
 
-    pose2[0] = 0;
-    pose2[1] = 0;
-    pose2[2] = 0;
-
     kobuki.init(parameters);
     kobuki.enable();
     slot_stream_data.connect("/kobuki/stream_data");
@@ -156,6 +156,8 @@ public:
     f >> SPEED_SCALE;
     f.close();
 
+    kobuki.resetOdometry();
+
   }
 
   ~KobukiManager() {
@@ -164,6 +166,7 @@ public:
   }
 
   void processStreamData() {
+    std::cout << "Before: " << x_position << " | " << z_position << " | " << orientation << std::endl;
     ecl::linear_algebra::Vector3d pose_update;
     ecl::linear_algebra::Vector3d pose_update_rates;
     kobuki.updateOdometry(pose_update, pose_update_rates);
@@ -181,20 +184,21 @@ public:
     pose[0] = tempX;
     pose[1] = tempZ;
     pose[2] = tempTheta;
-    // ecl::concatenate_poses(pose, pose_update);
-    
-    // dx += pose_update[0];   // x
-    // dth += pose_update[2];  // heading
-    // pose[2] += pose_update[2];
-    // pose[0] += pose_update[0] * cos(pose[2]);
-    // pose[1] += pose_update[0] * sin(pose[2]);
     x_position = pose[0];
     z_position = pose[1];
     orientation = pose[2];
+    std::cout << "After: " << x_position << " | " << z_position << " | " << orientation << std::endl;
   }
 
   const ecl::linear_algebra::Vector3d& getPose() {
     return pose;
+  }
+
+  void resetOdometry() {
+    pose[0] = 0.0;
+    pose[1] = 0.0;
+    pose[2] = 0.0;
+    kobuki.resetOdometry();
   }
 
   void processBumperEvent(const kobuki::BumperEvent &event) {long int ns;
@@ -273,7 +277,9 @@ public:
     }
     //std::cout << "AC" << std::endl;
     kobuki.setBaseControl(positionalSpeed, rotationalSpeed);
-    //batteryLevel -= batteryStep;
+    if (firstTourIsCompleted) {
+      batteryLevel -= batteryStep;
+    }
   }
 
   void moveForward(float speed) {
@@ -285,7 +291,9 @@ public:
       kobuki.setBaseControl(speed, 0.0);
     }
     //std::cout << "SC Move moveForward" << std::endl;
-    //batteryLevel -= batteryStep;
+    if (firstTourIsCompleted) {
+      batteryLevel -= batteryStep;
+    }
   }
 
   void moveBackward(float speed) {
@@ -296,7 +304,9 @@ public:
     } else {
       kobuki.setBaseControl(-speed, 0.0);
     }
-    //batteryLevel -= batteryStep;
+    if (firstTourIsCompleted) {
+      batteryLevel -= batteryStep;
+    }
   }
 
   void turnLeft(float speed) {
@@ -308,7 +318,9 @@ public:
       kobuki.setBaseControl(0.0, speed);
     }
     //std::cout << "SC Move turnLeft" << std::endl;
-    //batteryLevel -= batteryStep;
+    if (firstTourIsCompleted) {
+      batteryLevel -= batteryStep;
+    }
   }
 
   void turnRight(float speed) {
@@ -320,7 +332,9 @@ public:
       kobuki.setBaseControl(0.0, -speed);
     }
     //std::cout << "SC Move turnRight" << std::endl;
-    //batteryLevel -= batteryStep;
+    if (firstTourIsCompleted) {
+      batteryLevel -= batteryStep;
+    }
   }
 
   void stop() {
@@ -376,7 +390,6 @@ private:
   double dx, dth;
   const double length;
   ecl::linear_algebra::Vector3d pose;  // x, y, heading
-  ecl::linear_algebra::Vector3d pose2;  // x, y, heading
   kobuki::Kobuki kobuki;
   ecl::Slot<> slot_stream_data;
   ecl::Slot<const kobuki::BumperEvent&> slot_bumper_event;
@@ -886,7 +899,7 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
 
 
 
-PRT_VALUE* P_isTherePotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+PRT_VALUE* P_IsTherePotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   float minDistance = std::numeric_limits<float>::max();
   for (auto it = potentialAvoidLocations.begin(); it != potentialAvoidLocations.end(); it++) {
     minDistance = std::min(minDistance, getDistanceBetweenPairs(x_position, z_position, (*it).first, (*it).second));
@@ -897,7 +910,21 @@ PRT_VALUE* P_isTherePotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VA
 
 
 
+PRT_VALUE* P_FirstTourIsCompleted_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  firstTourIsCompleted = true;
+  return PrtMkIntValue((PRT_UINT32)1);
+}
 
+
+
+PRT_VALUE* P_ResetOdometry_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  x_position = 0.0;
+  y_position = 0.0;
+  z_position = 0.0;
+  orientation = 0.0;
+  kobuki_manager.resetOdometry();
+  return PrtMkIntValue((PRT_UINT32)1);
+}
 
 
 
