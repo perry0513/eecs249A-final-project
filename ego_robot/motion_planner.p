@@ -1,13 +1,15 @@
 machine MotionPlanner {
     var destination: machine;
-    var step: float;
     var destinationOfRequest: machine;
     var currentLocation: locationType;
     var goalLocation: locationType;
     var isHighPriorityMotionRequest: bool;
+    var geoFencedLocations: seq[locationType];
 
     fun DM(): string {
-        if (false) {
+        var temp: bool;
+        temp = IsThereAvoidLocationInSegment(currentLocation.0, currentLocation.1, goalLocation.0, goalLocation.1);
+        if (!temp) {
             return "AC";
         }
         return "SC";
@@ -51,8 +53,14 @@ machine MotionPlanner {
     }
 
     start state Init {
-        entry {
-            step = 0.25;
+        entry (payload: seq[locationType]) {
+            var index: int;
+            index = 0;
+            geoFencedLocations = payload;
+            while (index < sizeof(geoFencedLocations)) {
+                RegisterGeoFenceLocation(geoFencedLocations[index].0, geoFencedLocations[index].1);
+                index = index + 1;
+            }
             goto Run;
         }
     }

@@ -23,24 +23,27 @@ machine MotionPrimitives {
     var backwardCount: int;
     var tempLocation: seq[float];
     var tourCount: int;
+    var monitorId: int;
 
     fun DM(): string {
         var temp: bool;
         var isBumperReleasedLeft: bool;
         var isBumperReleasedCenter: bool;
         var isBumperReleasedRight: bool;
+        var isGeoFenceViolated: bool;
         isBumperReleasedLeft = GetIsBumperReleasedLeft();
         isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
+        isGeoFenceViolated = GetIsGeoFenceViolated();
         isAvoidLocationSent = false;
         SetLed(0, 0); /* set led0 to black */
         SetLed(1, 0); /* set led1 to black */
-        if ((!isBumperReleasedLeft || !isBumperReleasedCenter || !isBumperReleasedRight)) {
+        if (!isBumperReleasedLeft || !isBumperReleasedCenter || !isBumperReleasedRight || isGeoFenceViolated) {
             SetLed(1, 3); /* set led1 to orange */
             return "ObstacleAvoidanceController";
         }
-        temp = IsInTrajectory(currentMotion.0, currentMotion.1, trajectoryDeviationThreshold);
-        if (tourCount > 1 && temp && !IsTherePotentialAvoidLocation()) {
+        temp = CheckMonitor(monitorId);
+        if (tourCount > 1 && !temp && !IsTherePotentialAvoidLocation()) {
             FirstTourIsCompleted();
             SetLed(0, 2); /* set led0 to green */
             return "AdvancedMotionController";
@@ -56,6 +59,7 @@ machine MotionPrimitives {
         var isBumperReleasedLeft: bool;
         var isBumperReleasedCenter: bool;
         var isBumperReleasedRight: bool;
+        var isGeoFenceViolated: bool;
         var forwardSpeed: float;
         var rotationSpeed: float;
         var shouldKeepCurrentMotion: bool;
@@ -64,9 +68,10 @@ machine MotionPrimitives {
         isBumperReleasedLeft = GetIsBumperReleasedLeft();
         isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
+        isGeoFenceViolated = GetIsGeoFenceViolated();
         if (!isAvoidLocationSent) {
             isAvoidLocationSent = true;
-            shouldKeepCurrentMotion = RegisterAvoidLocation(currentMotion.0, currentMotion.1);
+            shouldKeepCurrentMotion = RegisterPotentialAvoidLocation(currentMotion.0, currentMotion.1);
             if (!shouldKeepCurrentMotion) {
                 if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
                     currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
@@ -99,6 +104,14 @@ machine MotionPrimitives {
                 isPreviouslyBumpedRight = true;
             }
             backwardCount = 0;
+        } else if (isGeoFenceViolated) {
+            MoveBackward(forwardSpeed);
+            if (!isPreviouslyBumpedLeft && !isPreviouslyBumpedCenter && !isPreviouslyBumpedRight) {
+                isPreviouslyBumpedLeft = false;
+                isPreviouslyBumpedCenter = false;
+                isPreviouslyBumpedRight = true;
+            }
+            backwardCount = 0;
         } else if (backwardCount < 100) {
             MoveBackward(forwardSpeed);
             backwardCount = backwardCount + 1;
@@ -119,6 +132,8 @@ machine MotionPrimitives {
         } else if (isPreviouslyBumpedRight) {
             MoveForward(forwardSpeed, -0.2);
         }
+        trajectoryDeviation = GetTrajectoryDeviation(currentMotion.0, currentMotion.1);
+        UpdateMonitor(monitorId, trajectoryDeviation);
     }
 
     fun SafeMotionController() {
@@ -167,6 +182,8 @@ machine MotionPrimitives {
         } else {
             Stay();
         }
+        trajectoryDeviation = GetTrajectoryDeviation(currentMotion.0, currentMotion.1);
+        UpdateMonitor(monitorId, trajectoryDeviation);
     }
 
     fun AdvancedMotionController() {
@@ -209,6 +226,8 @@ machine MotionPrimitives {
         } else {
             Stay();
         }
+        trajectoryDeviation = GetTrajectoryDeviation(currentMotion.0, currentMotion.1);
+        UpdateMonitor(monitorId, trajectoryDeviation);
     }
 
     start state Init {
@@ -232,6 +251,7 @@ machine MotionPrimitives {
             isPreviouslyBumpedRight = false;
             isAvoidLocationSent = false;
             tourCount = 0;
+            monitorId = InitMonitorGlobalLowerBound(10, trajectoryDeviationThreshold);
             goto Run;
         }
     }
@@ -257,6 +277,9 @@ machine MotionPrimitives {
             send payload, eCurrentLocation, currentLocation;
             lastGoal = currentMotion;
             isBatteryLow = true;
+            isPreviouslyBumpedLeft = false;
+            isPreviouslyBumpedCenter = false;
+            isPreviouslyBumpedRight = false;
         }
     }
 
@@ -277,6 +300,9 @@ machine MotionPrimitives {
             ResetOdometry();
             send payload, eCurrentGoal, lastGoal;
             isBatteryLow = false;
+            isPreviouslyBumpedLeft = false;
+            isPreviouslyBumpedCenter = false;
+            isPreviouslyBumpedRight = false;
         }
     }
 }

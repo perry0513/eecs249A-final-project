@@ -16,6 +16,8 @@
 
 #include "helper.hpp"
 
+#include "monitor.hpp"
+
 #include <time.h>
 
 #include <limits>
@@ -54,7 +56,7 @@
 
 #include<utility>
 
-#define R 0.2
+#define R ((float) 0.2)
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
@@ -95,6 +97,7 @@ og::SimpleSetup ss(space);
 og::PathGeometric waypoints(ss.getSpaceInformation());
 
 std::set<std::pair<float, float> > avoidLocations;
+std::set<std::pair<float, float> > geoFenceLocations;
 std::set<std::pair<float, float> > potentialAvoidLocations;
 
 float K_ap;
@@ -109,6 +112,19 @@ float SPEED_SCALE;
 /*****************************************************************************
 ** Classes
 *****************************************************************************/
+
+float getDistanceBetweenPairs(float p1X, float p1Z, float p2X, float p2Z) {
+  return sqrt(pow(p1X - p2X, 2) + pow(p1Z - p2Z, 2));
+}
+
+bool isStateOutOfGeoFence(float x, float z) {
+    for (auto it = geoFenceLocations.begin(); it != geoFenceLocations.end(); it++) {
+      if (getDistanceBetweenPairs(x, z, (*it).first, (*it).second) <= 2 * R) {
+        return false;
+      }
+    }
+    return true;
+}
 
 class KobukiManager {
 public:
@@ -125,7 +141,7 @@ public:
     slot_bumper_event(&KobukiManager::processBumperEvent, *this),
     slot_button_event(&KobukiManager::processButtonEvent, *this),
     slot_cliff_event(&KobukiManager::processCliffEvent, *this),
-    is_bumper_released_left(true), is_bumper_released_center(true), is_bumper_released_right(true),
+    is_bumper_released_left(true), is_bumper_released_center(true), is_bumper_released_right(true), is_geofence_violated(false),
     is_cliff_left(false), is_cliff_center(false), is_cliff_right(false)
   {
     kobuki::Parameters parameters;
@@ -166,7 +182,7 @@ public:
   }
 
   void processStreamData() {
-    std::cout << "Before: " << x_position << " | " << z_position << " | " << orientation << std::endl;
+    // std::cout << "Before: " << x_position << " | " << z_position << " | " << orientation << std::endl;
     ecl::linear_algebra::Vector3d pose_update;
     ecl::linear_algebra::Vector3d pose_update_rates;
     kobuki.updateOdometry(pose_update, pose_update_rates);
@@ -187,7 +203,12 @@ public:
     x_position = pose[0];
     z_position = pose[1];
     orientation = pose[2];
-    std::cout << "After: " << x_position << " | " << z_position << " | " << orientation << std::endl;
+    if (isStateOutOfGeoFence(x_position, z_position)) {
+      is_geofence_violated = false;
+    } else {
+      is_geofence_violated = true;
+    }
+    // std::cout << "After: " << x_position << " | " << z_position << " | " << orientation << std::endl;
   }
 
   const ecl::linear_algebra::Vector3d& getPose() {
@@ -353,6 +374,10 @@ public:
     return is_bumper_released_right;
   }
 
+  bool get_is_geofence_violated() {
+    return is_geofence_violated;
+  }
+
   bool get_is_cliff_left() {
     return is_cliff_left;
   }
@@ -398,6 +423,7 @@ private:
   bool is_bumper_released_left;
   bool is_bumper_released_center;
   bool is_bumper_released_right;
+  bool is_geofence_violated;
   bool is_button_pressed_b0;
   bool is_button_pressed_and_released_b0;
   bool is_cliff_left;
@@ -428,7 +454,12 @@ float getDistance(const ob::State *state, float tempX, float tempY) {
 
 bool isStateValid(const ob::State *state) {
     for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
-      if (getDistance(state, (*it).first, (*it).second) < R) {
+      if (getDistance(state, (*it).first, (*it).second) <= R) {
+        return false;
+      }
+    }
+    for (auto it = geoFenceLocations.begin(); it != geoFenceLocations.end(); it++) {
+      if (getDistance(state, (*it).first, (*it).second) <= 2 * R) {
         return false;
       }
     }
@@ -502,6 +533,11 @@ PRT_VALUE* P_GetIsBumperReleasedCenter_IMPL(PRT_MACHINEINST* context, PRT_VALUE*
 
 PRT_VALUE* P_GetIsBumperReleasedRight_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   bool returnValue = kobuki_manager.get_is_bumper_released_right();
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+PRT_VALUE* P_GetIsGeoFenceViolated_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  bool returnValue = kobuki_manager.get_is_geofence_violated();
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
 }
 
@@ -591,11 +627,7 @@ PRT_VALUE* P_Stay_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
-float getDistanceBetweenPairs(float p1X, float p1Z, float p2X, float p2Z) {
-  return sqrt(pow(p1X - p2X, 2) + pow(p1Z - p2Z, 2));
-}
-
-PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+PRT_VALUE* P_RegisterPotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   // Compute the avoidLocation
   float x_goal = PrtPrimGetFloat(*argRefs[0]);
   float z_goal = PrtPrimGetFloat(*argRefs[1]);
@@ -611,7 +643,7 @@ PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** a
   x = x_position + cos(angle) * R;
   z = z_position + sin(angle) * R;
   std::pair<float, float> potentialAvoidLocation(x, z);
-  //std::cout << "potentialAvoidLocation: " << potentialAvoidLocation.first << " " << potentialAvoidLocation.second << std::endl;
+  std::cout << "potentialAvoidLocation: " << potentialAvoidLocation.first << " " << potentialAvoidLocation.second << std::endl;
   for (auto it = potentialAvoidLocations.begin(); it != potentialAvoidLocations.end(); it++) {
     if (getDistanceBetweenPairs(potentialAvoidLocation.first, potentialAvoidLocation.second, (*it).first, (*it).second) <= 2 * R) {
       avoidLocations.insert(*it);
@@ -620,7 +652,7 @@ PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** a
   }
   potentialAvoidLocations.insert(potentialAvoidLocation);
   for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
-    //std::cout << "avoidLocation: " << (*it).first << " " << (*it).second << std::endl;
+    std::cout << "avoidLocation: " << (*it).first << " " << (*it).second << std::endl;
     if (getDistanceBetweenPairs(x_goal, z_goal, (*it).first, (*it).second) <= 2 * R) {
       return PrtMkBoolValue((PRT_BOOLEAN)false);
     }
@@ -628,20 +660,24 @@ PRT_VALUE* P_RegisterAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** a
   return PrtMkBoolValue((PRT_BOOLEAN)true);
 }
 
+PRT_VALUE* P_RegisterGeoFenceLocation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  // Compute the avoidLocation
+  float x_goal = PrtPrimGetFloat(*argRefs[0]);
+  float z_goal = PrtPrimGetFloat(*argRefs[1]);
+  std::pair<float, float> geoFenceLocation(x_goal, z_goal);
+  geoFenceLocations.insert(geoFenceLocation);
+  return PrtMkBoolValue((PRT_BOOLEAN)true);
+}
+
 PRT_VALUE* P_GetBatteryLevel_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   return PrtMkFloatValue((PRT_FLOAT)batteryLevel);
 }
 
-PRT_VALUE* P_IsInTrajectory_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+PRT_VALUE* P_GetTrajectoryDeviation_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   float x_goal = PrtPrimGetFloat(*argRefs[0]);
   float z_goal = PrtPrimGetFloat(*argRefs[1]);
-  float trajectoryDeviationThreshold = PrtPrimGetFloat(*argRefs[2]);
   float trajectoryDeviation = fabs((x_goal - x_start) * (z_start - z_position) - (x_start - x_position) * (z_goal - z_start)) / sqrt(pow(x_goal - x_start, 2) + pow(z_goal - z_start, 2));
-  //std::cout << "trajectoryDeviation: " << trajectoryDeviation << std::endl;
-  if (trajectoryDeviation > trajectoryDeviationThreshold) {
-    return PrtMkBoolValue((PRT_BOOLEAN)false);
-  }
-  return PrtMkBoolValue((PRT_BOOLEAN)true);
+  return  PrtMkFloatValue((PRT_FLOAT)trajectoryDeviation);;
 }
 
 PRT_VALUE* P_RandomController_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
@@ -735,6 +771,7 @@ ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPt
 
 PRT_VALUE* P_GetOMPLMotionPlanAC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
+    std::cout << "GetOMPLMotionPlanAC" << std::endl;
     float currentLocationX = PrtPrimGetFloat(*argRefs[0]);
     float currentLocationZ = PrtPrimGetFloat(*argRefs[1]);
     float goalLocationX = PrtPrimGetFloat(*argRefs[2]);
@@ -825,6 +862,9 @@ public:
       for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
         minDistance = std::min(minDistance, getDistance(state, (*it).first, (*it).second));
       }
+      for (auto it = geoFenceLocations.begin(); it != geoFenceLocations.end(); it++) {
+        minDistance = std::min(minDistance, getDistance(state, (*it).first, (*it).second) - R);
+      }
       return ob::Cost(1 / minDistance);
     }
 };
@@ -839,6 +879,7 @@ ob::OptimizationObjectivePtr getBalancedObjective(const ob::SpaceInformationPtr&
 
 PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
+    std::cout << "GetOMPLMotionPlanSC" << std::endl;
     float currentLocationX = PrtPrimGetFloat(*argRefs[0]);
     float currentLocationZ = PrtPrimGetFloat(*argRefs[1]);
     float goalLocationX = PrtPrimGetFloat(*argRefs[2]);
@@ -867,7 +908,9 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
   
     // attempt to solve the problem within one second of planning time
     ob::PlannerStatus solved = ss.solve(1.0);
-
+    PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+    PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
+    value = PrtMkDefaultValue(seqType);
     if (solved) {
         std::cout << "Found solution:" << std::endl;
         // print the path to screen
@@ -875,9 +918,6 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
         ss.getSolutionPath().print(std::cout);
         waypoints = ss.getSolutionPath();
         std::vector<ob::State*> waypointsVector = waypoints.getStates();
-        PRT_VALUE* value = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
-        PRT_TYPE* seqType = PrtMkSeqType(PrtMkPrimitiveType(PRT_KIND_FLOAT));
-        value = PrtMkDefaultValue(seqType);
         for (unsigned int i = 1; i < waypointsVector.size(); i++) {
           PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
           PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
@@ -894,7 +934,17 @@ PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** arg
     }
     ss.clear();
     std::cout << "No solution found" << std::endl;
-    return NULL;
+    PRT_TUPVALUE* tupPtr = (PRT_TUPVALUE*) PrtMalloc(sizeof(PRT_TUPVALUE));
+    PRT_VALUE* value2 = (PRT_VALUE*)PrtMalloc(sizeof(PRT_VALUE));
+    value2->discriminator = PRT_VALUE_KIND_TUPLE;
+    value2->valueUnion.tuple = tupPtr;
+    tupPtr->size = 2;
+    tupPtr->values = (PRT_VALUE**)PrtCalloc(2, sizeof(PRT_VALUE));
+    tupPtr->values[0] = PrtMkFloatValue(goalLocationX);
+    tupPtr->values[1] = PrtMkFloatValue(goalLocationZ);
+    PrtSeqInsert(value, PrtMkIntValue(0), value2);
+    value = PrtMkDefaultValue(seqType);
+    return value;
  }
 
 
@@ -926,5 +976,47 @@ PRT_VALUE* P_ResetOdometry_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) 
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
+float getDistanceToLine(float x0, float z0, float x1, float z1, float x, float z) {
+  return fabs((x1 - x0) * (z0 - z) - (x0 - x) * (z1 - z0)) / sqrt(pow(x1 - x0, 2) + pow(z1 - z0, 2));
+}
 
+
+PRT_VALUE* P_IsThereAvoidLocationInSegment_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  float x0 = PrtPrimGetFloat(*argRefs[0]);
+  float z0 = PrtPrimGetFloat(*argRefs[1]);
+  float x1 = PrtPrimGetFloat(*argRefs[2]);
+  float z1 = PrtPrimGetFloat(*argRefs[3]);
+  float minDistance = std::numeric_limits<float>::max();
+  for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
+    minDistance = std::min(minDistance, getDistanceToLine(x0, z0, x1, z1, (*it).first, (*it).second));
+  }
+  for (auto it = geoFenceLocations.begin(); it != geoFenceLocations.end(); it++) {
+    minDistance = std::min(minDistance, getDistanceToLine(x0, z0, x1, z1, (*it).first, (*it).second) - R);
+  }
+  bool returnValue = minDistance <= 1.2 * R;
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+
+PRT_VALUE* P_InitMonitorGlobalLowerBound_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  int len = PrtPrimGetInt(*argRefs[0]);
+  float threshold = PrtPrimGetFloat(*argRefs[1]);
+  int returnValue = initMonitorLowerBound(len, threshold);
+  return PrtMkIntValue((PRT_UINT32)returnValue);
+}
+
+PRT_VALUE* P_UpdateMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  int id = PrtPrimGetInt(*argRefs[0]);
+  float value = PrtPrimGetFloat(*argRefs[1]);
+  updateMonitor(id, value);
+  std::cout << "Logged to the monitor: " << value << std::endl;
+  return PrtMkIntValue((PRT_UINT32)1);
+}
+
+PRT_VALUE* P_CheckMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  int id = PrtPrimGetInt(*argRefs[0]);
+  bool returnValue = checkMonitor(id);
+  std::cout << "Monitor returned: " << returnValue << std::endl;
+  return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
 

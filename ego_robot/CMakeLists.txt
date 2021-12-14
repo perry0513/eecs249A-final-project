@@ -24,6 +24,8 @@ macro(kobuki_core_add_demo name)
   ego_robot.c
   helper.hpp
   helper.cpp
+  monitor.hpp
+  monitor.cpp
   /home/ubuntu/P-RTA/P/Bld/Drops/Prt/include/ext_compat.h
   /home/ubuntu/P-RTA/P/Bld/Drops/Prt/include/libhandler.h
   /home/ubuntu/P-RTA/P/Bld/Drops/Prt/include/libhandler-internal.h
