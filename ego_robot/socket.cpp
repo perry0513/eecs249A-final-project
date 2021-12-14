@@ -12,6 +12,7 @@
 enum PacketType {
     KOBUKI,
     OBSTACLE,
+    MACHINE,
 };
 
 struct packet_t {
@@ -19,6 +20,7 @@ struct packet_t {
     union {
         kobuki_t kobuki_pos;
         obstacle_t obstacle_pos;
+        machine_t machine;
     } packet_data;
 };
 
@@ -58,5 +60,12 @@ void sendObstaclePosition(obstacle_t pos) {
     packet_t packet;
     packet.packet_type = OBSTACLE;
     packet.packet_data.obstacle_pos = pos;
+    send(sockfd, &packet, sizeof(packet), 0);
+}
+
+void sendMachine(machine_t machine) {
+    packet_t packet;
+    packet.packet_type = MACHINE;
+    packet.packet_data.machine = machine;
     send(sockfd, &packet, sizeof(packet), 0);
 }
