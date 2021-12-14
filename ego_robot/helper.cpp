@@ -82,6 +82,9 @@ double charger_z = 0.0;
 
 bool firstTourIsCompleted = false;
 
+machine_t machine;
+int currentControllers[4] = {0, 0, 0, 0};
+
 
 // ASSUMPTION: WE COMPLETE THE FIRST TOUR BEFORE BATTERY DRAINS!!!!
 float batteryLevel = 1000.0;
@@ -220,7 +223,7 @@ public:
       pos.angle = orientation;
       sendKobukiPosition(pos);
       count = 0;
-      std::cout << "Pos Sent!" << std::endl;
+      // std::cout << "Pos Sent!" << std::endl;
     } else {
       count++;
     }
@@ -666,7 +669,7 @@ PRT_VALUE* P_RegisterPotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_V
       sendObstaclePosition(pos1);
       sendObstaclePosition(pos2);
 
-      std::cout << "Obs Sent!" << std::endl;
+      // std::cout << "Obs Sent!" << std::endl;
     }
   }
   potentialAvoidLocations.insert(potentialAvoidLocation);
@@ -1037,5 +1040,21 @@ PRT_VALUE* P_CheckMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   bool returnValue = checkMonitor(id);
   // std::cout << "Monitor returned: " << returnValue << std::endl;
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
+}
+
+PRT_VALUE* P_NotifyController_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
+  int machineId = PrtPrimGetInt(*argRefs[0]);
+  int controllerId = PrtPrimGetInt(*argRefs[1]);
+  if (currentControllers[machineId] != controllerId) {
+    switch (machineId) {
+      case 0: machine.robot = (controller) controllerId; break;
+      case 1: machine.repair = (controller) controllerId; break;
+      case 2: machine.motion_planner = (controller) controllerId; break;
+      case 3: machine.motion_primitives = (controller) controllerId; break;
+    }
+    currentControllers[machineId] = controllerId;
+    sendMachine(machine);
+  }
+  return PrtMkIntValue((PRT_UINT32)1);
 }
 

@@ -29,6 +29,7 @@ fun IsThereAvoidLocationInSegment(x_start: float, z_start: float, x_goal: float,
 fun InitMonitorGlobalLowerBound(len: int, threshold: float): int;
 fun UpdateMonitor(id: int, value: float): int;
 fun CheckMonitor(id: int): bool;
+fun NotifyController(machineId: int, controllerId: int): int;
 
 type locationType = (float, float);
 
@@ -59,8 +60,10 @@ machine EgoRobot {
             } else {
                 currentGoalIndex = 0;
             }
+            NotifyController(0, 0);
             return "SC";
         }
+        NotifyController(0, 1);
         return "AC";
     }
 

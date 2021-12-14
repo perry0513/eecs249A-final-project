@@ -14,11 +14,14 @@ machine Battery {
         previousBatteryLevel = currentBatteryLevel;
         currentBatteryLevel = GetBatteryLevel();
         if (!isBatteryLow && currentBatteryLevel < batteryLevelLowerBound && previousBatteryLevel >= batteryLevelLowerBound) {
+            NotifyController(1, 0);
             return "HandleLowBattery";
         }
         if (isBatteryLow && isButtonB0PressedAndReleased) {
+            NotifyController(1, 0);
             return "NotifyRecovery";
         }
+        NotifyController(1, 1);
         return "Idle";
     }
 

@@ -54,4 +54,6 @@ extern "C" PRT_VALUE* P_UpdateMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE**
 
 extern "C" PRT_VALUE* P_CheckMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs);
 
+extern "C" PRT_VALUE* P_NotifyController_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs);
+
 

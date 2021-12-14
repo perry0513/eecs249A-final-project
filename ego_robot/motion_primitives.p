@@ -40,18 +40,21 @@ machine MotionPrimitives {
         SetLed(1, 0); /* set led1 to black */
         if (!isBumperReleasedLeft || !isBumperReleasedCenter || !isBumperReleasedRight || isGeoFenceViolated) {
             SetLed(1, 3); /* set led1 to orange */
+            NotifyController(3, 2);
             return "ObstacleAvoidanceController";
         }
         temp = CheckMonitor(monitorId);
         if (tourCount > 1 && !temp && !IsTherePotentialAvoidLocation()) {
             FirstTourIsCompleted();
             SetLed(0, 2); /* set led0 to green */
+            NotifyController(3, 1);
             return "AdvancedMotionController";
         }
         SetLed(0, 1); /* set led0 to red */
         if (isBatteryLow) {
             SetLed(0, 3); /* set led0 to orange */
         }
+        NotifyController(3, 0);
         return "SafeMotionController";
     }
 
@@ -69,7 +72,7 @@ machine MotionPrimitives {
         isBumperReleasedCenter = GetIsBumperReleasedCenter();
         isBumperReleasedRight = GetIsBumperReleasedRight();
         isGeoFenceViolated = GetIsGeoFenceViolated();
-        if (!isAvoidLocationSent) {
+        if (!isAvoidLocationSent && (!isBumperReleasedLeft || !isBumperReleasedCenter || !isBumperReleasedRight)) {
             isAvoidLocationSent = true;
             shouldKeepCurrentMotion = RegisterPotentialAvoidLocation(currentMotion.0, currentMotion.1);
             if (!shouldKeepCurrentMotion) {
