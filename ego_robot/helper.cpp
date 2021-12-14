@@ -471,7 +471,7 @@ bool isStateValid(const ob::State *state) {
       }
     }
     for (auto it = geoFenceLocations.begin(); it != geoFenceLocations.end(); it++) {
-      if (getDistance(state, (*it).first, (*it).second) <= 2 * R) {
+      if (getDistance(state, (*it).first, (*it).second) <= 2.2 * R) {
         return false;
       }
     }

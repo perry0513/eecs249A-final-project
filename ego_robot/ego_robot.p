@@ -86,7 +86,7 @@ machine EgoRobot {
             currentLocation = (temp[0], temp[1]);
             temp = GetChargerPosition();
             chargerLocation = (temp[0], temp[1]);
-            geoFencedLocations += (sizeof(geoFencedLocations), (0.0, 1.0));
+            geoFencedLocations += (sizeof(geoFencedLocations), (1.0, 0.0));
             motionPlanner = new MotionPlanner(geoFencedLocations);
             motionPrimitives = new MotionPrimitives(this, motionPlanner, currentLocation, 0.2, 300.0);
             battery = new Battery(motionPrimitives, motionPlanner, chargerLocation, 50.0, 100.0);

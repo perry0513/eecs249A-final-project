@@ -76,9 +76,9 @@ machine MotionPrimitives {
             isAvoidLocationSent = true;
             shouldKeepCurrentMotion = RegisterPotentialAvoidLocation(currentMotion.0, currentMotion.1);
             if (!shouldKeepCurrentMotion) {
-                if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions)) {
+                if (currentHighPriorityMotionsIndex < sizeof(highPriorityMotions) - 1) {
                     currentHighPriorityMotionsIndex = currentHighPriorityMotionsIndex + 1;
-                } else if (!isBatteryLow && currentMotionIndex < sizeof(motions)) {
+                } else if (!isBatteryLow && currentMotionIndex < sizeof(motions) - 1) {
                     currentMotionIndex = currentMotionIndex + 1;
                 }
             }

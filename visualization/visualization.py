@@ -44,7 +44,7 @@ obstacle_turtle.hideturtle()
 obstacle_turtle.penup()
 obstacle_turtle.speed(0)
 
-obstacle_turtle.goto(0, 170)
+obstacle_turtle.goto(120, 50)
 obstacle_turtle.dot(48, "orange")
 
 obstacle_turtle.goto(0, 50)
