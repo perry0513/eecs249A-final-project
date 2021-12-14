@@ -7,7 +7,7 @@ import ctypes
 import struct
 import turtle
 
-IP, PORT = "192.168.43.237", 8080
+IP, PORT = "192.168.61.192", 8080
 
 class Kobuki(ctypes.Structure):
     _fields_ = [("x", ctypes.c_float),
@@ -27,18 +27,34 @@ class Packet(ctypes.Structure):
                 ("packet_data", PacketData)]
     KOBUKI = 0
     OBSTACLE = 1
-
-kobuki_turtle = turtle.Turtle()
-kobuki_turtle.shape("turtle")
-kobuki_turtle.penup()
-kobuki_turtle.speed(0)
-kobuki_turtle.seth(90)
-kobuki_turtle.speed(1)
 obstacle_turtle = turtle.Turtle()
 obstacle_turtle.hideturtle()
 obstacle_turtle.penup()
 obstacle_turtle.speed(0)
 turtle.setup(600, 600)
+
+obstacle_turtle.goto(0, 120)
+obstacle_turtle.dot(48, "orange")
+
+obstacle_turtle.goto(0, 0)
+obstacle_turtle.dot(48, "green")
+
+obstacle_turtle.goto(120, 120)
+obstacle_turtle.dot(12, "blue")
+obstacle_turtle.goto(-120, 120)
+obstacle_turtle.dot(12, "blue")
+obstacle_turtle.goto(-120, -120)
+obstacle_turtle.dot(12, "blue")
+obstacle_turtle.goto(120, -120)
+obstacle_turtle.dot(12, "blue")
+
+kobuki_turtle = turtle.Turtle()
+kobuki_turtle.shape("turtle")
+kobuki_turtle.penup()
+kobuki_turtle.speed(0)
+kobuki_turtle.seth(0)
+kobuki_turtle.speed(1)
+
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((IP, PORT))
@@ -55,11 +71,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             packet = Packet()
             ctypes.memmove(ctypes.pointer(packet), data, ctypes.sizeof(packet))
             if packet.packet_type == Packet.KOBUKI:
-                kobuki_turtle.seth(180 + packet.packet_data.kobuki.angle / math.pi * 180)
-                kobuki_turtle.goto(-120 * packet.packet_data.kobuki.x, -120 * packet.packet_data.kobuki.y)
+                kobuki_turtle.seth(packet.packet_data.kobuki.angle / math.pi * 180)
+                kobuki_turtle.goto(120 * packet.packet_data.kobuki.x, 120 * packet.packet_data.kobuki.y)
             elif packet.packet_type == Packet.OBSTACLE:
-                obstacle_turtle.goto(-120 * packet.packet_data.obstacle.x, -120 * packet.packet_data.obstacle.y)
-                obstacle_turtle.dot(48, "blue")
+                obstacle_turtle.goto(120 * packet.packet_data.obstacle.x, 120 * packet.packet_data.obstacle.y)
+                obstacle_turtle.dot(48, "red")
             # print(packet.packet_type)
             # print(packet.packet_data.obstacle.x)
             # print(packet.packet_data.obstacle.y)

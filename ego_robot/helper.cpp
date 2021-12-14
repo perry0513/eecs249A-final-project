@@ -17,6 +17,7 @@
 #include "helper.hpp"
 
 #include "monitor.hpp"
+#include "socket.hpp"
 
 #include <time.h>
 
@@ -109,6 +110,8 @@ float K_ti;
 float BASE_SPEED;
 float SPEED_SCALE;
 
+int count = 0;
+
 /*****************************************************************************
 ** Classes
 *****************************************************************************/
@@ -144,6 +147,8 @@ public:
     is_bumper_released_left(true), is_bumper_released_center(true), is_bumper_released_right(true), is_geofence_violated(false),
     is_cliff_left(false), is_cliff_center(false), is_cliff_right(false)
   {
+
+    openConnection();
     kobuki::Parameters parameters;
     parameters.sigslots_namespace = "/kobuki";
     parameters.device_port = device;
@@ -208,6 +213,17 @@ public:
     } else {
       is_geofence_violated = true;
     }
+    if (count == 10) {
+      kobuki_t pos;
+      pos.x = x_position;
+      pos.y = z_position;
+      pos.angle = orientation;
+      sendKobukiPosition(pos);
+      count = 0;
+      std::cout << "Pos Sent!" << std::endl;
+    } else {
+      count++;
+    }
     // std::cout << "After: " << x_position << " | " << z_position << " | " << orientation << std::endl;
   }
 
@@ -222,14 +238,7 @@ public:
     kobuki.resetOdometry();
   }
 
-  void processBumperEvent(const kobuki::BumperEvent &event) {long int ns;
-    time_t sec;
-    struct timespec spec;
-
-    clock_gettime(CLOCK_REALTIME, &spec);
-    //sec = spec.tv_sec;
-    ns = spec.tv_nsec;
-    std::cout << ns << std::endl;
+  void processBumperEvent(const kobuki::BumperEvent &event) {
     if (event.state == kobuki::BumperEvent::Released) {
       switch (event.bumper) {
         case kobuki::BumperEvent::Left  : is_bumper_released_left   = true; break;
@@ -643,16 +652,26 @@ PRT_VALUE* P_RegisterPotentialAvoidLocation_IMPL(PRT_MACHINEINST* context, PRT_V
   x = x_position + cos(angle) * R;
   z = z_position + sin(angle) * R;
   std::pair<float, float> potentialAvoidLocation(x, z);
-  std::cout << "potentialAvoidLocation: " << potentialAvoidLocation.first << " " << potentialAvoidLocation.second << std::endl;
+  // std::cout << "potentialAvoidLocation: " << potentialAvoidLocation.first << " " << potentialAvoidLocation.second << std::endl;
   for (auto it = potentialAvoidLocations.begin(); it != potentialAvoidLocations.end(); it++) {
     if (getDistanceBetweenPairs(potentialAvoidLocation.first, potentialAvoidLocation.second, (*it).first, (*it).second) <= 2 * R) {
       avoidLocations.insert(*it);
       avoidLocations.insert(potentialAvoidLocation);
+      obstacle_t pos1;
+      pos1.x = (*it).first;
+      pos1.y = (*it).second;
+      obstacle_t pos2;
+      pos2.x = potentialAvoidLocation.first;
+      pos2.y = potentialAvoidLocation.second;
+      sendObstaclePosition(pos1);
+      sendObstaclePosition(pos2);
+
+      std::cout << "Obs Sent!" << std::endl;
     }
   }
   potentialAvoidLocations.insert(potentialAvoidLocation);
   for (auto it = avoidLocations.begin(); it != avoidLocations.end(); it++) {
-    std::cout << "avoidLocation: " << (*it).first << " " << (*it).second << std::endl;
+    // std::cout << "avoidLocation: " << (*it).first << " " << (*it).second << std::endl;
     if (getDistanceBetweenPairs(x_goal, z_goal, (*it).first, (*it).second) <= 2 * R) {
       return PrtMkBoolValue((PRT_BOOLEAN)false);
     }
@@ -771,7 +790,7 @@ ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPt
 
 PRT_VALUE* P_GetOMPLMotionPlanAC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
-    std::cout << "GetOMPLMotionPlanAC" << std::endl;
+    // std::cout << "GetOMPLMotionPlanAC" << std::endl;
     float currentLocationX = PrtPrimGetFloat(*argRefs[0]);
     float currentLocationZ = PrtPrimGetFloat(*argRefs[1]);
     float goalLocationX = PrtPrimGetFloat(*argRefs[2]);
@@ -879,7 +898,7 @@ ob::OptimizationObjectivePtr getBalancedObjective(const ob::SpaceInformationPtr&
 
 PRT_VALUE* P_GetOMPLMotionPlanSC_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
 
-    std::cout << "GetOMPLMotionPlanSC" << std::endl;
+     // std::cout<< "GetOMPLMotionPlanSC" << std::endl;
     float currentLocationX = PrtPrimGetFloat(*argRefs[0]);
     float currentLocationZ = PrtPrimGetFloat(*argRefs[1]);
     float goalLocationX = PrtPrimGetFloat(*argRefs[2]);
@@ -1009,14 +1028,14 @@ PRT_VALUE* P_UpdateMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) 
   int id = PrtPrimGetInt(*argRefs[0]);
   float value = PrtPrimGetFloat(*argRefs[1]);
   updateMonitor(id, value);
-  std::cout << "Logged to the monitor: " << value << std::endl;
+  // std::cout << "Logged to the monitor: " << value << std::endl;
   return PrtMkIntValue((PRT_UINT32)1);
 }
 
 PRT_VALUE* P_CheckMonitor_IMPL(PRT_MACHINEINST* context, PRT_VALUE*** argRefs) {
   int id = PrtPrimGetInt(*argRefs[0]);
   bool returnValue = checkMonitor(id);
-  std::cout << "Monitor returned: " << returnValue << std::endl;
+  // std::cout << "Monitor returned: " << returnValue << std::endl;
   return PrtMkBoolValue((PRT_BOOLEAN)returnValue);
 }
 

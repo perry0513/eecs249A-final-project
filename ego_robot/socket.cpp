@@ -48,11 +48,15 @@ bool openConnection() {
 }
 
 void sendKobukiPosition(kobuki_t pos) {
-    packet_t packet = {.packet_type = KOBUKI, .packet_data = {.kobuki_pos = pos}};
+    packet_t packet;
+    packet.packet_type = KOBUKI;
+    packet.packet_data.kobuki_pos = pos;
     send(sockfd, &packet, sizeof(packet), 0);
 }
 
 void sendObstaclePosition(obstacle_t pos) {
-    packet_t packet = {.packet_type = OBSTACLE, .packet_data = {.obstacle_pos = pos}};
+    packet_t packet;
+    packet.packet_type = OBSTACLE;
+    packet.packet_data.obstacle_pos = pos;
     send(sockfd, &packet, sizeof(packet), 0);
 }
